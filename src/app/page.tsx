@@ -7,10 +7,11 @@ import CodeEditor from '@/components/CodeEditor';
 import AIChatPanel from '@/components/AIChatPanel';
 import Terminal from '@/components/Terminal';
 import Settings from '@/components/Settings';
+import { useProjectStore } from '@/store/projectStore';
 
 export default function Home() {
   const [activeView, setActiveView] = useState<'explorer' | 'editor' | 'chat' | 'terminal' | 'settings'>('explorer');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const { selectedFile, setSelectedFile } = useProjectStore();
 
   const renderMainContent = () => {
     switch (activeView) {

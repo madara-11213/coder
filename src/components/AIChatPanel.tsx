@@ -10,15 +10,21 @@ import {
   Settings as SettingsIcon,
   Code,
   FileText,
-  Lightbulb
+  Lightbulb,
+  Play,
+  Bug,
+  Sparkles,
+  Loader
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import CodeGenerator from './CodeGenerator';
 
 interface Message {
   id: string;
-  type: 'user' | 'ai';
+  type: 'user' | 'ai' | 'system';
   content: string;
   timestamp: Date;
+  status?: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error';
 }
 
 interface QuickAction {
@@ -28,38 +34,78 @@ interface QuickAction {
   prompt: string;
 }
 
+interface AIStatus {
+  isActive: boolean;
+  currentAction: string;
+  progress: number;
+}
+
 export default function AIChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
+  const [selectedModel, setSelectedModel] = useState('openai');
+  const [aiStatus, setAiStatus] = useState<AIStatus>({ isActive: false, currentAction: '', progress: 0 });
+  const [showCodeGenerator, setShowCodeGenerator] = useState(false);
+  const [selectedAIResponse, setSelectedAIResponse] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  const pollinationsModels = [
+    'openai',
+    'openai-fast', 
+    'openai-large',
+    'openai-roblox',
+    'qwen-coder',
+    'llama',
+    'llamascout',
+    'mistral',
+    'unity',
+    'mirexa',
+    'midijourney',
+    'rtist',
+    'searchgpt',
+    'evil',
+    'deepseek-reasoning',
+    'phi',
+    'hormoz',
+    'hypnosis-tracy',
+    'deepseek',
+    'grok',
+    'sur',
+    'bidara'
+  ];
+
   const quickActions: QuickAction[] = [
+    {
+      id: 'generate',
+      label: 'Generate Code',
+      icon: <Code size={16} />,
+      prompt: 'Generate a complete code solution for:'
+    },
     {
       id: 'explain',
       label: 'Explain Code',
-      icon: <Code size={16} />,
-      prompt: 'Can you explain this code and what it does?'
+      icon: <FileText size={16} />,
+      prompt: 'Explain this code and how it works:'
     },
     {
       id: 'optimize',
       label: 'Optimize Code',
-      icon: <Lightbulb size={16} />,
-      prompt: 'How can I optimize this code for better performance?'
+      icon: <Sparkles size={16} />,
+      prompt: 'Optimize this code for better performance:'
     },
     {
       id: 'debug',
-      label: 'Debug Help',
-      icon: <FileText size={16} />,
-      prompt: 'I\'m having trouble with this code. Can you help me debug it?'
+      label: 'Debug & Fix',
+      icon: <Bug size={16} />,
+      prompt: 'Debug and fix any errors in this code:'
     },
     {
-      id: 'document',
-      label: 'Add Documentation',
-      icon: <FileText size={16} />,
-      prompt: 'Can you help me add proper documentation to this code?'
+      id: 'run',
+      label: 'Run & Test',
+      icon: <Play size={16} />,
+      prompt: 'Run this code and test it for errors:'
     }
   ];
 
@@ -68,18 +114,28 @@ export default function AIChatPanel() {
     const welcomeMessage: Message = {
       id: 'welcome',
       type: 'ai',
-      content: `# Welcome to AI Assistant! 🤖
+      content: `# Welcome to AI Code Assistant! 🤖
 
-I'm here to help you with your coding projects. I can:
+I'm powered by Pollinations.ai and can help you build, debug, and optimize your code. I can:
 
-- **Explain code** and algorithms
-- **Debug issues** and suggest fixes
-- **Optimize performance** and suggest improvements
-- **Write documentation** and comments
-- **Generate code** snippets and examples
-- **Answer questions** about programming concepts
+## 🔧 Code Generation
+- Generate complete applications from scratch
+- Create specific functions and components
+- Build websites, bots, and applications
 
-Feel free to ask me anything or use the quick actions below!`,
+## 🐛 Debug & Fix
+- Automatically detect and fix errors
+- Run code and identify issues
+- Suggest improvements and optimizations
+
+## 🚀 Smart Development
+- Real-time code editing and testing
+- Virtual environment simulation
+- Branch-like code management
+
+**Just describe what you want to build, and I'll generate the complete code, run it, test it, and fix any errors automatically!**
+
+Choose your preferred AI model above and let's start coding!`,
       timestamp: new Date()
     };
     setMessages([welcomeMessage]);
@@ -107,28 +163,40 @@ Feel free to ask me anything or use the quick actions below!`,
     const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
+    setAiStatus({ isActive: true, currentAction: 'Analyzing request...', progress: 20 });
 
     try {
-      // Call pollinations.ai API
-      const response = await fetch('https://text.pollinations.ai/', {
+      // Use the correct pollinations.ai API format as provided by the user
+      const response = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Referer': 'L0jejdsYQOrz1lFp',
+          'token': 'L0jejdsYQOrz1lFp'
         },
         body: JSON.stringify({
+          model: selectedModel,
           messages: [
             {
               role: 'system',
-              content: 'You are a helpful coding assistant. You can help with code explanation, debugging, optimization, and writing code. When possible, provide working code examples.'
+              content: 'You are a professional coding assistant powered by Pollinations.ai. You can generate complete code solutions, debug errors, optimize performance, and help build any type of application. When generating code, provide complete, working solutions with proper structure and comments. If the user asks you to build something, provide the complete file structure and all necessary code.'
             },
             {
               role: 'user',
               content: currentInput
             }
           ],
-          model: selectedModel
+          temperature: 0.7,
+          top_p: 1.0,
+          seed: Math.floor(Math.random() * 1000000),
+          private: true,
+          nofeed: true,
+          token: 'L0jejdsYQOrz1lFp',
+          referrer: 'L0jejdsYQOrz1lFp'
         })
       });
+
+      setAiStatus({ isActive: true, currentAction: 'Generating response...', progress: 60 });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -136,24 +204,50 @@ Feel free to ask me anything or use the quick actions below!`,
 
       const aiContent = await response.text();
       
+      setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 90 });
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
         content: aiContent,
-        timestamp: new Date()
+        timestamp: new Date(),
+        status: 'completed'
       };
       setMessages(prev => [...prev, aiResponse]);
+
+      // If the response contains code, offer to create/edit files
+      if (aiContent.includes('```') || currentInput.toLowerCase().includes('generate') || currentInput.toLowerCase().includes('create')) {
+        setTimeout(() => {
+          const systemMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            type: 'system',
+            content: '💡 **I can help you implement this code!** Click the "Generate Files" button below to automatically create the project structure and files.',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, systemMessage]);
+        }, 1000);
+      }
+
     } catch (error) {
       console.error('Error calling AI API:', error);
       const errorResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: 'Sorry, I encountered an error while processing your request. Please try again.',
-        timestamp: new Date()
+        content: `❌ **Error connecting to AI service**
+
+There was an issue connecting to Pollinations.ai. This could be due to:
+- Network connectivity issues
+- API rate limits
+- Service temporarily unavailable
+
+Please try again in a moment.`,
+        timestamp: new Date(),
+        status: 'error'
       };
       setMessages(prev => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
+      setAiStatus({ isActive: false, currentAction: '', progress: 0 });
     }
   };
 
@@ -267,12 +361,14 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
           <select 
             value={selectedModel} 
             onChange={(e) => setSelectedModel(e.target.value)}
-            className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm"
+            className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm max-w-[150px]"
+            title="Select AI Model"
           >
-            <option value="openai">OpenAI GPT</option>
-            <option value="claude">Claude</option>
-            <option value="mistral">Mistral</option>
-            <option value="llama">Llama</option>
+            {pollinationsModels.map(model => (
+              <option key={model} value={model}>
+                {model.charAt(0).toUpperCase() + model.slice(1).replace('-', ' ')}
+              </option>
+            ))}
           </select>
           
           <button 
@@ -289,12 +385,28 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
         </div>
       </div>
 
+      {/* AI Status Bar */}
+      {aiStatus.isActive && (
+        <div className="bg-blue-600 text-white px-4 py-2 text-sm flex items-center gap-2">
+          <Loader className="animate-spin" size={16} />
+          <span>{aiStatus.currentAction}</span>
+          <div className="flex-1 bg-blue-800 rounded-full h-2 ml-2">
+            <div 
+              className="bg-white h-2 rounded-full transition-all duration-300"
+              style={{ width: `${aiStatus.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {message.type === 'ai' && (
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+            {(message.type === 'ai' || message.type === 'system') && (
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+                message.type === 'system' ? 'bg-orange-600' : 'bg-blue-600'
+              }`}>
                 <Bot size={16} />
               </div>
             )}
@@ -304,20 +416,57 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
                 rounded-lg px-4 py-3 
                 ${message.type === 'user' 
                   ? 'bg-blue-600 text-white ml-auto' 
+                  : message.type === 'system'
+                  ? 'bg-orange-600/20 border border-orange-600/30'
                   : 'bg-gray-800 border border-gray-700'
                 }
               `}>
-                {message.type === 'ai' ? (
+                {(message.type === 'ai' || message.type === 'system') ? (
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 )}
+                
+                {/* Show action buttons for AI responses with code */}
+                {message.type === 'ai' && message.content.includes('```') && (
+                  <div className="mt-3 pt-3 border-t border-gray-600 flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setSelectedAIResponse(message.content);
+                        setShowCodeGenerator(true);
+                      }}
+                      className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm flex items-center gap-1"
+                    >
+                      <Code size={14} />
+                      Generate Files
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedAIResponse(message.content);
+                        setShowCodeGenerator(true);
+                      }}
+                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-1"
+                    >
+                      <Play size={14} />
+                      Run & Test
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                 <span>{message.timestamp.toLocaleTimeString()}</span>
+                {message.status && (
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    message.status === 'completed' ? 'bg-green-600/20 text-green-400' :
+                    message.status === 'error' ? 'bg-red-600/20 text-red-400' :
+                    'bg-yellow-600/20 text-yellow-400'
+                  }`}>
+                    {message.status}
+                  </span>
+                )}
                 <button 
                   onClick={() => copyMessage(message.content)}
                   className="hover:text-gray-300"
@@ -398,6 +547,14 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>
+
+      {/* Code Generator Modal */}
+      {showCodeGenerator && (
+        <CodeGenerator
+          aiResponse={selectedAIResponse}
+          onClose={() => setShowCodeGenerator(false)}
+        />
+      )}
     </div>
   );
 }
