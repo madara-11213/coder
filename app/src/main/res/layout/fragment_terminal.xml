@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.terminal.TerminalFragment">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Terminal Header -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="0dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Terminal"
+                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_new_tab"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@string/terminal_new_tab"
+                    app:icon="@drawable/ic_add_24" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_clear_terminal"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/terminal_clear"
+                    app:icon="@drawable/ic_clear_24" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Tabs -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/terminal_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorSurfaceVariant"
+            app:tabGravity="fill"
+            app:tabMode="scrollable" />
+
+        <!-- Terminal ViewPager -->
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/terminal_pager"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@color/terminal_background" />
+
+        <!-- Command Input -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="0dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/terminal_background"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/terminal_prompt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:text="$ "
+                    android:textColor="@color/terminal_prompt"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/command_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:fontFamily="monospace"
+                    android:hint="@string/terminal_input_hint"
+                    android:imeOptions="actionSend"
+                    android:inputType="textNoSuggestions"
+                    android:maxLines="1"
+                    android:textColor="@color/terminal_text"
+                    android:textColorHint="@color/gray_medium"
+                    android:textSize="14sp" />
+
+                <ImageButton
+                    android:id="@+id/btn_send_command"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Send command"
+                    android:src="@drawable/ic_send_24"
+                    app:tint="@color/terminal_text" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+    <!-- Floating Action Buttons -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/fab_shortcuts"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:text="Shortcuts"
+        app:icon="@drawable/ic_keyboard_24" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
