@@ -54,6 +54,14 @@ export default function Settings() {
   const [settings, setSettings] = useState<SettingsData>(defaultSettings);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Get available models from environment variables
+  const getAvailableModels = () => {
+    const modelsString = process.env.NEXT_PUBLIC_AI_MODELS || 'openai,openai-fast,openai-large,qwen-coder,llama,mistral,deepseek-reasoning,grok,searchgpt';
+    return modelsString.split(',').map(model => model.trim());
+  };
+
+  const availableModels = getAvailableModels();
+
   useEffect(() => {
     // Load settings from localStorage
     const savedSettings = localStorage.getItem('coder-settings');
@@ -387,28 +395,11 @@ export default function Settings() {
                 onChange={(e) => updateSetting('aiModel', e.target.value)}
                 className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm min-w-[150px]"
               >
-                <option value="openai">OpenAI</option>
-                <option value="openai-fast">OpenAI Fast</option>
-                <option value="openai-large">OpenAI Large</option>
-                <option value="openai-roblox">OpenAI Roblox</option>
-                <option value="qwen-coder">Qwen Coder</option>
-                <option value="llama">Llama</option>
-                <option value="llamascout">Llama Scout</option>
-                <option value="mistral">Mistral</option>
-                <option value="unity">Unity</option>
-                <option value="mirexa">Mirexa</option>
-                <option value="midijourney">Midijourney</option>
-                <option value="rtist">Rtist</option>
-                <option value="searchgpt">SearchGPT</option>
-                <option value="evil">Evil</option>
-                <option value="deepseek-reasoning">Deepseek Reasoning</option>
-                <option value="phi">Phi</option>
-                <option value="hormoz">Hormoz</option>
-                <option value="hypnosis-tracy">Hypnosis Tracy</option>
-                <option value="deepseek">Deepseek</option>
-                <option value="grok">Grok</option>
-                <option value="sur">Sur</option>
-                <option value="bidara">Bidara</option>
+                {availableModels.map(model => (
+                  <option key={model} value={model}>
+                    {model.charAt(0).toUpperCase() + model.slice(1).replace('-', ' ')}
+                  </option>
+                ))}
               </select>
             </SettingRow>
           </SettingSection>
