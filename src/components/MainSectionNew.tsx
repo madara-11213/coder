@@ -84,7 +84,8 @@ export default function MainSection() {
     'llama',
     'mistral',
     'deepseek-reasoning',
-    'grok'
+    'grok',
+    'searchgpt'
   ];
 
   // Load branch-specific chat history
@@ -98,22 +99,29 @@ export default function MainSection() {
           type: 'ai',
           content: `# Welcome to AI Code Assistant! 🤖
 
-I'm your intelligent coding companion. I can:
+I'm your intelligent coding companion with **real-time web search** capabilities. I can:
 
 ## 🔧 **Smart Development**
 - **Analyze** your entire codebase
 - **Generate** complete projects from descriptions
-- **Fix errors** automatically
+- **Fix errors** automatically with latest solutions
 - **Create branches** for changes
+
+## 🌐 **Web-Enhanced Features**
+- **Auto-detect** when current information is needed
+- **Search the web** for latest documentation and examples
+- **Use real-time data** for error solving and best practices
+- **Stay updated** with current technologies and solutions
 
 ## 🎯 **How I Work**
 - I can see and understand all your project files
 - When you ask me to build something, I create a new branch and work directly on files
-- I provide real-time status updates
-- Ask me to explain any code - I'll analyze your entire project
+- I automatically search the web for current examples when needed
+- I provide real-time status updates with pause/resume functionality
+- Ask me to explain any code - I'll analyze your entire project with latest info
 
 **Current Branch: ${currentBranch.name}**
-**Just tell me what you want to build or ask about your code!**`,
+**Just tell me what you want to build or ask about your code - I'll use the latest web info!**`,
           timestamp: new Date()
         };
         setMessages([welcomeMessage]);
@@ -143,6 +151,108 @@ I'm your intelligent coding companion. I can:
 
   const resumeAI = () => {
     setAiStatus(prev => ({ ...prev, isPaused: false }));
+  };
+
+  // Dynamic web search detection
+  const needsWebSearch = (userInput: string): boolean => {
+    const searchKeywords = [
+      'latest', 'current', 'new', 'recent', 'updated', 'modern',
+      'error:', 'bug:', 'issue:', 'problem:', 'fix', 'solve',
+      'how to', 'tutorial', 'example', 'documentation',
+      'best practices', 'performance', 'optimization',
+      'react 18', 'next.js 14', 'typescript 5', 'node.js',
+      'compatibility', 'deprecated', 'alternative',
+      'library', 'package', 'npm', 'install',
+      'stackoverflow', 'github', 'documentation'
+    ];
+    
+    const lowerInput = userInput.toLowerCase();
+    return searchKeywords.some(keyword => lowerInput.includes(keyword)) ||
+           /error|exception|failed|undefined|null|cannot|does not work/i.test(userInput) ||
+           /\b(20|19)\d{2}\b/.test(userInput) || // Year references
+           /version|update|upgrade|migrate/i.test(userInput);
+  };
+
+  // Perform web search using searchgpt
+  const performWebSearch = async (query: string): Promise<string> => {
+    const currentDateTime = new Date().toLocaleString('en-US', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    try {
+      const searchResponse = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+        },
+        body: JSON.stringify({
+          model: 'searchgpt',
+          messages: [
+            {
+              role: 'system',
+              content: `You are SearchGPT with real-time web search capabilities. Current date and time: ${currentDateTime}
+
+Please search the web for information related to the user's query and provide:
+1. Latest/current information from reliable sources
+2. Code examples if relevant
+3. Best practices and solutions
+4. Recent updates or changes
+5. Links to documentation, Stack Overflow, GitHub, etc.
+
+Focus on providing accurate, up-to-date information that can help solve coding problems or provide current examples.`
+            },
+            {
+              role: 'user',
+              content: `Search for: ${query}
+
+Please find the most current and relevant information, including:
+- Latest documentation and examples
+- Recent solutions to similar problems
+- Current best practices
+- Any recent updates or changes
+- Working code examples`
+            }
+          ],
+          temperature: 0.3,
+          top_p: 0.9,
+          seed: Math.floor(Math.random() * 1000000),
+          private: true,
+          nofeed: true,
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+        })
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error(`Search failed: ${searchResponse.status}`);
+      }
+
+      const responseText = await searchResponse.text();
+      
+      let searchResults = responseText;
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message) {
+          searchResults = jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse search response as JSON, using raw text:', parseError);
+      }
+
+      return searchResults;
+    } catch (error) {
+      console.error('Web search failed:', error);
+      return `Unable to perform web search at this time. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
   };
 
   // Function to get all file contents from the current branch
@@ -244,8 +354,18 @@ I'm your intelligent coding companion. I can:
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Check if web search is needed
+      let searchResults = '';
+      if (needsWebSearch(userInput)) {
+        addStatusMessage('🔍 **Searching the web for latest information...**', 'analyzing', 30);
+        setAiStatus({ isActive: true, currentAction: 'Searching web for current examples...', progress: 30, isPaused: false });
+        
+        searchResults = await performWebSearch(userInput);
+        addStatusMessage('✅ **Web search completed - using latest information**', 'analyzing', 35);
+      }
+      
       addStatusMessage(`📝 **Created new branch: ${branchName}**`, 'generating', 40);
-      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: branchName, isPaused: false });
+      setAiStatus({ isActive: true, currentAction: 'Generating code with latest info...', progress: 40, currentBranch: branchName, isPaused: false });
       
       // Call the AI API to generate code
       const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
@@ -268,6 +388,11 @@ I'm your intelligent coding companion. I can:
 
 ## Current Project Context:
 ${getAllFileContents()}
+
+${searchResults ? `## Web Search Results (Latest Information):
+${searchResults}
+
+Use the above search results to ensure you're using the most current and best practices. Incorporate any relevant examples, solutions, or updated approaches found in the search results.` : ''}
 
 Return your response with clear code blocks using \`\`\` syntax and specify file names.`
             },
@@ -335,7 +460,17 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
     try {
       setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30, isPaused: false });
       
-      const isEditRequest = userInput.toLowerCase().includes('edit') || 
+      // Check if web search is needed for chat responses
+      let searchResults = '';
+      if (needsWebSearch(userInput)) {
+        addStatusMessage('🔍 **Searching the web for latest information...**', 'analyzing', 40);
+        setAiStatus({ isActive: true, currentAction: 'Searching web for current info...', progress: 40, isPaused: false });
+        
+        searchResults = await performWebSearch(userInput);
+        addStatusMessage('✅ **Web search completed - providing updated answer**', 'analyzing', 50);
+      }
+      
+      const isEditRequest = userInput.toLowerCase().includes('edit') ||
                            userInput.toLowerCase().includes('change') || 
                            userInput.toLowerCase().includes('modify') || 
                            userInput.toLowerCase().includes('update') || 
@@ -367,7 +502,12 @@ When editing files:
 ## Current Project Structure and Files:
 ${getAllFileContents()}
 
-You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`;
+You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.
+
+${searchResults ? `## Web Search Results (Latest Information):
+${searchResults}
+
+Use the above search results to provide the most current and accurate information. Reference recent examples, updated documentation, and current best practices found in the search results.` : ''}`;
       
       const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
