@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useProjectStore } from '@/store/projectStore';
+import { useBranchStore } from '@/store/branchStore';
+import BranchSelector from './BranchSelector';
+import StatusDetailModal from './StatusDetailModal';
 
 interface Message {
   id: string;
@@ -26,6 +29,13 @@ interface Message {
   content: string;
   timestamp: Date;
   status?: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error';
+  statusDetail?: {
+    id: string;
+    type: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error';
+    title: string;
+    description?: string;
+    progress?: number;
+  };
 }
 
 interface AIStatus {
@@ -36,14 +46,27 @@ interface AIStatus {
 }
 
 export default function MainSection() {
-  const { fileTree, generateProjectFromAI } = useProjectStore();
+  const { generateProjectFromAI } = useProjectStore();
+  const { 
+    getCurrentBranch, 
+    updateBranchChat, 
+    updateBranchFiles, 
+    addToSTM, 
+    addToLTM,
+    createBranch 
+  } = useBranchStore();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('openai');
   const [aiStatus, setAiStatus] = useState<AIStatus>({ isActive: false, currentAction: '', progress: 0 });
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedStatusDetail, setSelectedStatusDetail] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  const currentBranch = getCurrentBranch();
 
   const pollinationsModels = [
     'openai',
@@ -70,12 +93,17 @@ export default function MainSection() {
     'bidara'
   ];
 
-  // Sample initial message
+  // Load branch-specific chat history
   useEffect(() => {
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      type: 'ai',
-      content: `# Welcome to AI Code Assistant! 🤖
+    if (currentBranch) {
+      if (currentBranch.chatHistory.length > 0) {
+        setMessages(currentBranch.chatHistory);
+      } else {
+        // Initialize with welcome message for new branches
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          type: 'ai',
+          content: `# Welcome to AI Code Assistant! 🤖
 
 I'm your intelligent coding companion. I can:
 
@@ -91,11 +119,21 @@ I'm your intelligent coding companion. I can:
 - I provide status updates but work behind the scenes
 - Ask me to explain any code - I'll analyze your entire project
 
+**Current Branch: ${currentBranch.name}**
 **Just tell me what you want to build or ask about your code!**`,
-      timestamp: new Date()
-    };
-    setMessages([welcomeMessage]);
-  }, []);
+          timestamp: new Date()
+        };
+        setMessages([welcomeMessage]);
+      }
+    }
+  }, [currentBranch?.id]);
+
+  // Save messages to current branch whenever messages change
+  useEffect(() => {
+    if (currentBranch && messages.length > 0) {
+      updateBranchChat(currentBranch.id, messages);
+    }
+  }, [messages, currentBranch?.id, updateBranchChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -105,8 +143,12 @@ I'm your intelligent coding companion. I can:
     scrollToBottom();
   }, [messages]);
 
-  // Function to get all file contents from the project
-  const getAllFileContents = (nodes: any[]): string => {
+  // Function to get all file contents from the current branch
+  const getAllFileContents = (): string => {
+    if (!currentBranch || !currentBranch.fileTree.length) {
+      return 'No project files currently loaded.';
+    }
+
     let content = '';
     
     const processNode = (node: any, depth: number = 0) => {
@@ -124,26 +166,46 @@ I'm your intelligent coding companion. I can:
       }
     };
 
-    nodes.forEach(node => processNode(node));
+    currentBranch.fileTree.forEach(node => processNode(node));
     return content;
   };
 
-  const addStatusMessage = (content: string, status?: string) => {
+  const addStatusMessage = (content: string, status?: string, progress?: number) => {
+    const statusId = `status-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const statusMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'status',
       content,
       timestamp: new Date(),
-      status: status as any
+      status: status as any,
+      statusDetail: {
+        id: statusId,
+        type: status as any,
+        title: content.replace(/[#*]/g, '').trim(),
+        description: getStatusDescription(status as any),
+        progress
+      }
     };
     setMessages(prev => [...prev, statusMessage]);
+  };
+
+  const getStatusDescription = (status: string) => {
+    switch (status) {
+      case 'analyzing': return 'AI is analyzing your request and project structure';
+      case 'generating': return 'Generating code and creating project files';
+      case 'running': return 'Running tests and validating generated code';
+      case 'fixing': return 'Identifying and fixing errors in the code';
+      case 'completed': return 'Task completed successfully';
+      case 'error': return 'An error occurred during processing';
+      default: return 'Processing your request';
+    }
   };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'user',
       content: inputMessage,
       timestamp: new Date()
@@ -172,21 +234,26 @@ I'm your intelligent coding companion. I can:
 
   const handleCodeGeneration = async (userInput: string) => {
     try {
-      addStatusMessage('🌟 **Starting AI Code Generation**', 'analyzing');
+      addStatusMessage('🌟 **Starting AI Code Generation**', 'analyzing', 10);
       setAiStatus({ isActive: true, currentAction: 'Creating new branch...', progress: 20 });
+      
+      // Create a new branch for AI code generation
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-');
+      const branchName = `ai-code-${timestamp}`;
+      const newBranchId = createBranch(branchName, `AI generated code: ${userInput.slice(0, 50)}...`, true);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      addStatusMessage('📝 **Creating new branch: ai-generated-code**', 'generating');
-      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: 'ai-generated-code' });
+      addStatusMessage(`📝 **Created new branch: ${branchName}**`, 'generating', 40);
+      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: branchName });
       
       // Call the AI API to generate code
-      const response = await fetch('https://text.pollinations.ai/openai', {
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Referer': 'L0jejdsYQOrz1lFp',
-          'token': 'L0jejdsYQOrz1lFp'
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -195,8 +262,12 @@ I'm your intelligent coding companion. I can:
               role: 'system',
               content: `You are a professional coding assistant. Generate complete, working code based on the user's request. Provide well-structured, commented code that follows best practices. Include all necessary files for a complete project.
 
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-3).join(', ') || 'None'}
+
 ## Current Project Context:
-${fileTree.length > 0 ? getAllFileContents(fileTree) : 'Starting with a new project.'}
+${getAllFileContents()}
 
 Return your response with clear code blocks using \`\`\` syntax and specify file names.`
             },
@@ -210,8 +281,8 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
           seed: Math.floor(Math.random() * 1000000),
           private: true,
           nofeed: true,
-          token: 'L0jejdsYQOrz1lFp',
-          referrer: 'L0jejdsYQOrz1lFp'
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
         })
       });
 
@@ -233,7 +304,7 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       }
 
       setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60 });
-      addStatusMessage('⚡ **Generating project structure...**', 'generating');
+      addStatusMessage('⚡ **Generating project structure...**', 'generating', 60);
       
       // Generate the actual project
       const project = await generateProjectFromAI(aiResponse);
@@ -241,20 +312,20 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       setAiStatus({ isActive: true, currentAction: 'Testing generated code...', progress: 80 });
-      addStatusMessage('🧪 **Running tests and validations...**', 'running');
+      addStatusMessage('🧪 **Running tests and validations...**', 'running', 80);
       
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (project) {
         setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100 });
-        addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed');
+        addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed', 100);
       } else {
-        addStatusMessage('⚠️ **No code blocks found in AI response. Try being more specific about what you want to build.**', 'error');
+        addStatusMessage('⚠️ **No code blocks found in AI response. Try being more specific about what you want to build.**', 'error', 0);
       }
 
     } catch (error) {
       console.error('Error in code generation:', error);
-      addStatusMessage(`❌ **Error during code generation**: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      addStatusMessage(`❌ **Error during code generation**: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error', 0);
     } finally {
       setIsLoading(false);
       setAiStatus({ isActive: false, currentAction: '', progress: 0 });
@@ -265,24 +336,56 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
     try {
       setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30 });
       
-      const response = await fetch('https://text.pollinations.ai/openai', {
+      // Check if this is a request to edit files
+      const isEditRequest = userInput.toLowerCase().includes('edit') || 
+                           userInput.toLowerCase().includes('change') || 
+                           userInput.toLowerCase().includes('modify') || 
+                           userInput.toLowerCase().includes('update') || 
+                           userInput.toLowerCase().includes('fix') ||
+                           userInput.toLowerCase().includes('add to') ||
+                           userInput.toLowerCase().includes('remove from');
+
+      const systemPrompt = isEditRequest ? 
+        `You are a professional coding assistant. When the user asks you to edit, modify, or change files, you should provide the updated code in properly formatted code blocks.
+
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-5).join(', ') || 'None'}
+
+## Current Project Structure and Files:
+${getAllFileContents()}
+
+When editing files:
+1. Provide the complete updated file content in a code block
+2. Use the format: \`\`\`filename.ext to clearly indicate which file to update
+3. Include ALL content of the file, not just the changes
+4. Make sure the code is functional and follows best practices
+
+If explaining or discussing code, provide detailed, helpful explanations based on the actual files.` :
+        `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
+
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-5).join(', ') || 'None'}
+
+## Current Project Structure and Files:
+${getAllFileContents()}
+
+You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`;
+      
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Referer': 'L0jejdsYQOrz1lFp',
-          'token': 'L0jejdsYQOrz1lFp'
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
         },
         body: JSON.stringify({
           model: selectedModel,
           messages: [
             {
               role: 'system',
-              content: `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
-
-## Current Project Structure and Files:
-${fileTree.length > 0 ? getAllFileContents(fileTree) : 'No project files currently loaded.'}
-
-You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`
+              content: systemPrompt
             },
             {
               role: 'user',
@@ -294,8 +397,8 @@ You have full access to all the files above. When the user asks about code, refe
           seed: Math.floor(Math.random() * 1000000),
           private: true,
           nofeed: true,
-          token: 'L0jejdsYQOrz1lFp',
-          referrer: 'L0jejdsYQOrz1lFp'
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
         })
       });
 
@@ -318,19 +421,36 @@ You have full access to all the files above. When the user asks about code, refe
         console.warn('Could not parse AI response as JSON, using raw text:', parseError);
       }
 
+      // If this was an edit request, try to apply the changes directly to files
+      if (isEditRequest && currentBranch) {
+        setAiStatus({ isActive: true, currentAction: 'Applying file changes...', progress: 90 });
+        const filesUpdated = await applyFileEdits(aiContent);
+        
+        if (filesUpdated > 0) {
+          addStatusMessage(`✅ **Updated ${filesUpdated} file(s) directly**`, 'completed', 100);
+          addToSTM(currentBranch.id, `Applied edits to ${filesUpdated} files`);
+        }
+      }
+
       const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-ai-${Math.random().toString(36).substr(2, 9)}`,
         type: 'ai',
         content: aiContent,
         timestamp: new Date(),
         status: 'completed'
       };
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Add to short term memory
+      if (currentBranch) {
+        addToSTM(currentBranch.id, `User asked: ${userInput.slice(0, 100)}...`);
+        addToSTM(currentBranch.id, `AI explained: ${aiContent.slice(0, 100)}...`);
+      }
 
     } catch (error) {
       console.error('Error calling AI API:', error);
       const errorResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-error-${Math.random().toString(36).substr(2, 9)}`,
         type: 'ai',
         content: `❌ **Error connecting to AI service**
 
@@ -350,12 +470,86 @@ Please try again in a moment.`,
     }
   };
 
+  const applyFileEdits = async (aiResponse: string): Promise<number> => {
+    if (!currentBranch) return 0;
+    
+    let filesUpdated = 0;
+    
+    // Extract code blocks with filenames
+    const codeBlockRegex = /```(\w+)?\s*(?:\/\/\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g;
+    const filenameRegex = /```([^`\n]+)\n([\s\S]*?)```/g;
+    
+    let match;
+    const updates: { filename: string; content: string }[] = [];
+    
+    // First try to match blocks with explicit filenames
+    while ((match = filenameRegex.exec(aiResponse)) !== null) {
+      const potentialFilename = match[1].trim();
+      const content = match[2].trim();
+      
+      // Check if it looks like a filename (has extension and no spaces)
+      if (potentialFilename.includes('.') && !potentialFilename.includes(' ')) {
+        updates.push({ filename: potentialFilename, content });
+      }
+    }
+    
+    // If no explicit filenames found, try the code block regex
+    if (updates.length === 0) {
+      while ((match = codeBlockRegex.exec(aiResponse)) !== null) {
+        const language = match[1] || '';
+        const filename = match[2];
+        const content = match[3].trim();
+        
+        if (filename) {
+          updates.push({ filename, content });
+        }
+      }
+    }
+    
+    // Apply updates to files
+    for (const update of updates) {
+      const updated = updateFileInBranch(currentBranch.fileTree, update.filename, update.content);
+      if (updated) {
+        filesUpdated++;
+      }
+    }
+    
+    if (filesUpdated > 0) {
+      updateBranchFiles(currentBranch.id, currentBranch.fileTree);
+    }
+    
+    return filesUpdated;
+  };
+
+  const updateFileInBranch = (nodes: any[], targetFilename: string, newContent: string): boolean => {
+    for (const node of nodes) {
+      if (node.type === 'file' && (node.name === targetFilename || node.path.endsWith(targetFilename))) {
+        node.content = newContent;
+        node.lastModified = new Date();
+        return true;
+      }
+      if (node.children && node.type === 'folder') {
+        if (updateFileInBranch(node.children, targetFilename, newContent)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
   };
 
   const clearChat = () => {
     setMessages(messages.slice(0, 1)); // Keep welcome message
+  };
+
+  const handleStatusClick = (message: Message) => {
+    if (message.statusDetail) {
+      setSelectedStatusDetail(message.statusDetail);
+      setShowStatusModal(true);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -372,12 +566,7 @@ Please try again in a moment.`,
         <div className="flex items-center gap-3">
           <Bot className="text-blue-400" size={20} />
           <h2 className="text-lg font-semibold">AI Assistant</h2>
-          {aiStatus.currentBranch && (
-            <div className="flex items-center gap-1 text-sm text-green-400">
-              <GitBranch size={14} />
-              <span>{aiStatus.currentBranch}</span>
-            </div>
-          )}
+          <BranchSelector onBranchChange={() => setMessages([])} />
         </div>
         
         <div className="flex items-center gap-2">
@@ -436,17 +625,20 @@ Please try again in a moment.`,
             )}
             
             <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
-              <div className={`
-                rounded-lg px-4 py-3 
-                ${message.type === 'user' 
-                  ? 'bg-blue-600 text-white ml-auto' 
-                  : message.type === 'system'
-                  ? 'bg-orange-600/20 border border-orange-600/30'
-                  : message.type === 'status'
-                  ? 'bg-purple-600/20 border border-purple-600/30'
-                  : 'bg-gray-800 border border-gray-700'
-                }
-              `}>
+              <div 
+                className={`
+                  rounded-lg px-4 py-3 
+                  ${message.type === 'user' 
+                    ? 'bg-blue-600 text-white ml-auto' 
+                    : message.type === 'system'
+                    ? 'bg-orange-600/20 border border-orange-600/30'
+                    : message.type === 'status'
+                    ? 'bg-purple-600/20 border border-purple-600/30 cursor-pointer hover:bg-purple-600/30 transition-colors'
+                    : 'bg-gray-800 border border-gray-700'
+                  }
+                `}
+                onClick={() => message.type === 'status' && handleStatusClick(message)}
+              >
                 {(message.type === 'ai' || message.type === 'system' || message.type === 'status') ? (
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
@@ -459,12 +651,16 @@ Please try again in a moment.`,
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                 <span>{message.timestamp.toLocaleTimeString()}</span>
                 {message.status && (
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    message.status === 'completed' ? 'bg-green-600/20 text-green-400' :
-                    message.status === 'error' ? 'bg-red-600/20 text-red-400' :
-                    'bg-yellow-600/20 text-yellow-400'
-                  }`}>
-                    {message.status}
+                  <span 
+                    className={`px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                      message.status === 'completed' ? 'bg-green-600/20 text-green-400' :
+                      message.status === 'error' ? 'bg-red-600/20 text-red-400' :
+                      'bg-yellow-600/20 text-yellow-400'
+                    }`}
+                    onClick={() => handleStatusClick(message)}
+                    title="Click to view details"
+                  >
+                    {message.status} {message.type === 'status' && '🔍'}
                   </span>
                 )}
                 <button 
@@ -528,6 +724,18 @@ Please try again in a moment.`,
           💡 Ask me to "create a React app" or "explain this code" - I work directly with your files!
         </div>
       </div>
+
+      {/* Status Detail Modal */}
+      {selectedStatusDetail && (
+        <StatusDetailModal
+          isOpen={showStatusModal}
+          onClose={() => {
+            setShowStatusModal(false);
+            setSelectedStatusDetail(null);
+          }}
+          status={selectedStatusDetail}
+        />
+      )}
     </div>
   );
 }
