@@ -1,9 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Terminal as XTerm } from 'xterm';
-import { FitAddon } from 'xterm-addon-fit';
-import { WebLinksAddon } from 'xterm-addon-web-links';
 import { 
   Play, 
   Square, 
@@ -18,14 +15,15 @@ import {
 interface TerminalTab {
   id: string;
   name: string;
-  terminal: XTerm;
-  fitAddon: FitAddon;
+  terminal: any;
+  fitAddon: any;
 }
 
 export default function Terminal() {
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,14 +33,28 @@ export default function Terminal() {
     return () => {
       // Cleanup terminals on unmount
       tabs.forEach(tab => {
-        tab.terminal.dispose();
+        tab.terminal?.dispose();
       });
     };
   }, []);
 
-  const createNewTab = () => {
-    const tabId = `tab-${Date.now()}`;
-    const terminal = new XTerm({
+  const createNewTab = async () => {
+    setIsLoading(true);
+    
+    try {
+      // Dynamically import xterm libraries to avoid SSR issues
+      const [
+        { Terminal: XTerm },
+        { FitAddon },
+        { WebLinksAddon }
+      ] = await Promise.all([
+        import('xterm'),
+        import('xterm-addon-fit'),
+        import('xterm-addon-web-links')
+      ]);
+
+      const tabId = `tab-${Date.now()}`;
+      const terminal = new XTerm({
       theme: {
         background: '#1a1b26',
         foreground: '#c0caf5',
@@ -73,43 +85,48 @@ export default function Terminal() {
       cols: 80
     });
 
-    const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
-    
-    terminal.loadAddon(fitAddon);
-    terminal.loadAddon(webLinksAddon);
+      const fitAddon = new FitAddon();
+      const webLinksAddon = new WebLinksAddon();
+      
+      terminal.loadAddon(fitAddon);
+      terminal.loadAddon(webLinksAddon);
 
-    const newTab: TerminalTab = {
-      id: tabId,
-      name: `Terminal ${tabs.length + 1}`,
-      terminal,
-      fitAddon
-    };
+      const newTab: TerminalTab = {
+        id: tabId,
+        name: `Terminal ${tabs.length + 1}`,
+        terminal,
+        fitAddon
+      };
 
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(tabId);
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(tabId);
 
-    // Setup terminal after it's rendered
-    setTimeout(() => {
-      if (terminalContainerRef.current) {
-        terminal.open(terminalContainerRef.current);
-        fitAddon.fit();
-        
-        // Welcome message
-        terminal.writeln('\x1b[1;34mWelcome to Web Terminal!\x1b[0m');
-        terminal.writeln('This is a simulated terminal environment.');
-        terminal.writeln('Type commands below:');
-        terminal.writeln('');
-        
-        // Setup command handling
-        setupTerminalCommands(terminal);
-        
-        setIsConnected(true);
-      }
-    }, 100);
+      // Setup terminal after it's rendered
+      setTimeout(() => {
+        if (terminalContainerRef.current) {
+          terminal.open(terminalContainerRef.current);
+          fitAddon.fit();
+          
+          // Welcome message
+          terminal.writeln('\x1b[1;34mWelcome to Web Terminal!\x1b[0m');
+          terminal.writeln('This is a simulated terminal environment.');
+          terminal.writeln('Type commands below:');
+          terminal.writeln('');
+          
+          // Setup command handling
+          setupTerminalCommands(terminal);
+          
+          setIsConnected(true);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Failed to load terminal:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const setupTerminalCommands = (terminal: XTerm) => {
+  const setupTerminalCommands = (terminal: any) => {
     let currentInput = '';
     let promptShown = false;
     
@@ -331,8 +348,9 @@ export default function Terminal() {
           
           <button
             onClick={createNewTab}
-            className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+            className="flex items-center gap-1 px-2 py-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-50"
             title="New terminal"
+            disabled={isLoading}
           >
             <Plus size={14} />
           </button>
@@ -341,14 +359,22 @@ export default function Terminal() {
 
       {/* Terminal Content */}
       <div className="flex-1 bg-gray-900 p-4">
-        {tabs.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <div className="text-4xl mb-4">⏳</div>
+              <p>Loading terminal...</p>
+            </div>
+          </div>
+        ) : tabs.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">
             <div className="text-center">
               <div className="text-4xl mb-4">💻</div>
               <p>No terminal sessions</p>
               <button 
                 onClick={createNewTab}
-                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
+                className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white disabled:opacity-50"
+                disabled={isLoading}
               >
                 Create New Terminal
               </button>

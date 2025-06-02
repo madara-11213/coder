@@ -104,20 +104,57 @@ Feel free to ask me anything or use the quick actions below!`,
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // Call pollinations.ai API
+      const response = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful coding assistant. You can help with code explanation, debugging, optimization, and writing code. When possible, provide working code examples.'
+            },
+            {
+              role: 'user',
+              content: currentInput
+            }
+          ],
+          model: selectedModel
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const aiContent = await response.text();
+      
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: generateAIResponse(inputMessage),
+        content: aiContent,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Error calling AI API:', error);
+      const errorResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: 'Sorry, I encountered an error while processing your request. Please try again.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsLoading(false);
-    }, 1000 + Math.random() * 2000);
+    }
   };
 
   const generateAIResponse = (userInput: string): string => {
@@ -232,9 +269,10 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
             onChange={(e) => setSelectedModel(e.target.value)}
             className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm"
           >
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            <option value="gpt-4">GPT-4</option>
-            <option value="claude-3">Claude 3</option>
+            <option value="openai">OpenAI GPT</option>
+            <option value="claude">Claude</option>
+            <option value="mistral">Mistral</option>
+            <option value="llama">Llama</option>
           </select>
           
           <button 
