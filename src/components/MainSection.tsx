@@ -14,40 +14,34 @@ import {
   Play,
   Bug,
   Sparkles,
-  Loader
+  Loader,
+  GitBranch
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import CodeGenerator from './CodeGenerator';
+import { useProjectStore } from '@/store/projectStore';
 
 interface Message {
   id: string;
-  type: 'user' | 'ai' | 'system';
+  type: 'user' | 'ai' | 'system' | 'status';
   content: string;
   timestamp: Date;
   status?: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error';
-}
-
-interface QuickAction {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  prompt: string;
 }
 
 interface AIStatus {
   isActive: boolean;
   currentAction: string;
   progress: number;
+  currentBranch?: string;
 }
 
-export default function AIChatPanel() {
+export default function MainSection() {
+  const { fileTree, generateProjectFromAI } = useProjectStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('openai');
   const [aiStatus, setAiStatus] = useState<AIStatus>({ isActive: false, currentAction: '', progress: 0 });
-  const [showCodeGenerator, setShowCodeGenerator] = useState(false);
-  const [selectedAIResponse, setSelectedAIResponse] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -76,39 +70,6 @@ export default function AIChatPanel() {
     'bidara'
   ];
 
-  const quickActions: QuickAction[] = [
-    {
-      id: 'generate',
-      label: 'Generate Code',
-      icon: <Code size={16} />,
-      prompt: 'Generate a complete code solution for:'
-    },
-    {
-      id: 'explain',
-      label: 'Explain Code',
-      icon: <FileText size={16} />,
-      prompt: 'Explain this code and how it works:'
-    },
-    {
-      id: 'optimize',
-      label: 'Optimize Code',
-      icon: <Sparkles size={16} />,
-      prompt: 'Optimize this code for better performance:'
-    },
-    {
-      id: 'debug',
-      label: 'Debug & Fix',
-      icon: <Bug size={16} />,
-      prompt: 'Debug and fix any errors in this code:'
-    },
-    {
-      id: 'run',
-      label: 'Run & Test',
-      icon: <Play size={16} />,
-      prompt: 'Run this code and test it for errors:'
-    }
-  ];
-
   // Sample initial message
   useEffect(() => {
     const welcomeMessage: Message = {
@@ -116,26 +77,21 @@ export default function AIChatPanel() {
       type: 'ai',
       content: `# Welcome to AI Code Assistant! 🤖
 
-I'm powered by Pollinations.ai and can help you build, debug, and optimize your code. I can:
+I'm your intelligent coding companion. I can:
 
-## 🔧 Code Generation
-- Generate complete applications from scratch
-- Create specific functions and components
-- Build websites, bots, and applications
+## 🔧 **Smart Development**
+- **Analyze** your entire codebase
+- **Generate** complete projects from descriptions
+- **Fix errors** automatically
+- **Create branches** for changes
 
-## 🐛 Debug & Fix
-- Automatically detect and fix errors
-- Run code and identify issues
-- Suggest improvements and optimizations
+## 🎯 **How I Work**
+- I can see and understand all your project files
+- When you ask me to build something, I create a new branch and work directly on files
+- I provide status updates but work behind the scenes
+- Ask me to explain any code - I'll analyze your entire project
 
-## 🚀 Smart Development
-- Real-time code editing and testing
-- Virtual environment simulation
-- Branch-like code management
-
-**Just describe what you want to build, and I'll generate the complete code, run it, test it, and fix any errors automatically!**
-
-Choose your preferred AI model above and let's start coding!`,
+**Just tell me what you want to build or ask about your code!**`,
       timestamp: new Date()
     };
     setMessages([welcomeMessage]);
@@ -148,6 +104,40 @@ Choose your preferred AI model above and let's start coding!`,
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Function to get all file contents from the project
+  const getAllFileContents = (nodes: any[]): string => {
+    let content = '';
+    
+    const processNode = (node: any, depth: number = 0) => {
+      const indent = '  '.repeat(depth);
+      
+      if (node.type === 'file' && node.content) {
+        content += `\n${indent}📁 File: ${node.path}\n`;
+        content += `${indent}Content:\n`;
+        content += `${indent}\`\`\`\n${node.content}\n${indent}\`\`\`\n`;
+      } else if (node.type === 'folder') {
+        content += `\n${indent}📂 Folder: ${node.path}\n`;
+        if (node.children) {
+          node.children.forEach((child: any) => processNode(child, depth + 1));
+        }
+      }
+    };
+
+    nodes.forEach(node => processNode(node));
+    return content;
+  };
+
+  const addStatusMessage = (content: string, status?: string) => {
+    const statusMessage: Message = {
+      id: Date.now().toString(),
+      type: 'status',
+      content,
+      timestamp: new Date(),
+      status: status as any
+    };
+    setMessages(prev => [...prev, statusMessage]);
+  };
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
@@ -163,10 +153,34 @@ Choose your preferred AI model above and let's start coding!`,
     const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
-    setAiStatus({ isActive: true, currentAction: 'Analyzing request...', progress: 20 });
+    setAiStatus({ isActive: true, currentAction: 'Connecting to AI...', progress: 10 });
 
+    // Check if this is a code generation request
+    const isCodeRequest = currentInput.toLowerCase().includes('create') || 
+                         currentInput.toLowerCase().includes('build') || 
+                         currentInput.toLowerCase().includes('generate') ||
+                         currentInput.toLowerCase().includes('make');
+
+    if (isCodeRequest) {
+      // For code generation, work directly on files
+      await handleCodeGeneration(currentInput);
+    } else {
+      // For explanations, discussions, etc.
+      await handleNormalChat(currentInput);
+    }
+  };
+
+  const handleCodeGeneration = async (userInput: string) => {
     try {
-      // Use the correct pollinations.ai API format as provided by the user
+      addStatusMessage('🌟 **Starting AI Code Generation**', 'analyzing');
+      setAiStatus({ isActive: true, currentAction: 'Creating new branch...', progress: 20 });
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      addStatusMessage('📝 **Creating new branch: ai-generated-code**', 'generating');
+      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: 'ai-generated-code' });
+      
+      // Call the AI API to generate code
       const response = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
@@ -179,11 +193,16 @@ Choose your preferred AI model above and let's start coding!`,
           messages: [
             {
               role: 'system',
-              content: 'You are a professional coding assistant powered by Pollinations.ai. You can generate complete code solutions, debug errors, optimize performance, and help build any type of application. When generating code, provide complete, working solutions with proper structure and comments. If the user asks you to build something, provide the complete file structure and all necessary code.'
+              content: `You are a professional coding assistant. Generate complete, working code based on the user's request. Provide well-structured, commented code that follows best practices. Include all necessary files for a complete project.
+
+## Current Project Context:
+${fileTree.length > 0 ? getAllFileContents(fileTree) : 'Starting with a new project.'}
+
+Return your response with clear code blocks using \`\`\` syntax and specify file names.`
             },
             {
               role: 'user',
-              content: currentInput
+              content: userInput
             }
           ],
           temperature: 0.7,
@@ -196,15 +215,108 @@ Choose your preferred AI model above and let's start coding!`,
         })
       });
 
-      setAiStatus({ isActive: true, currentAction: 'Generating response...', progress: 60 });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      
+      // Parse the JSON response to extract the actual message content
+      let aiResponse = responseText;
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message) {
+          aiResponse = jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse AI response as JSON, using raw text:', parseError);
+      }
+
+      setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60 });
+      addStatusMessage('⚡ **Generating project structure...**', 'generating');
+      
+      // Generate the actual project
+      const project = await generateProjectFromAI(aiResponse);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setAiStatus({ isActive: true, currentAction: 'Testing generated code...', progress: 80 });
+      addStatusMessage('🧪 **Running tests and validations...**', 'running');
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      if (project) {
+        setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100 });
+        addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed');
+      } else {
+        addStatusMessage('⚠️ **No code blocks found in AI response. Try being more specific about what you want to build.**', 'error');
+      }
+
+    } catch (error) {
+      console.error('Error in code generation:', error);
+      addStatusMessage(`❌ **Error during code generation**: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setIsLoading(false);
+      setAiStatus({ isActive: false, currentAction: '', progress: 0 });
+    }
+  };
+
+  const handleNormalChat = async (userInput: string) => {
+    try {
+      setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30 });
+      
+      const response = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': 'L0jejdsYQOrz1lFp',
+          'token': 'L0jejdsYQOrz1lFp'
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
+
+## Current Project Structure and Files:
+${fileTree.length > 0 ? getAllFileContents(fileTree) : 'No project files currently loaded.'}
+
+You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`
+            },
+            {
+              role: 'user',
+              content: userInput
+            }
+          ],
+          temperature: 0.7,
+          top_p: 1.0,
+          seed: Math.floor(Math.random() * 1000000),
+          private: true,
+          nofeed: true,
+          token: 'L0jejdsYQOrz1lFp',
+          referrer: 'L0jejdsYQOrz1lFp'
+        })
+      });
+
+      setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 80 });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const aiContent = await response.text();
+      const responseText = await response.text();
       
-      setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 90 });
+      // Parse the JSON response to extract the actual message content
+      let aiContent = responseText;
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message) {
+          aiContent = jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse AI response as JSON, using raw text:', parseError);
+      }
 
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -214,19 +326,6 @@ Choose your preferred AI model above and let's start coding!`,
         status: 'completed'
       };
       setMessages(prev => [...prev, aiResponse]);
-
-      // If the response contains code, offer to create/edit files
-      if (aiContent.includes('```') || currentInput.toLowerCase().includes('generate') || currentInput.toLowerCase().includes('create')) {
-        setTimeout(() => {
-          const systemMessage: Message = {
-            id: (Date.now() + 2).toString(),
-            type: 'system',
-            content: '💡 **I can help you implement this code!** Click the "Generate Files" button below to automatically create the project structure and files.',
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, systemMessage]);
-        }, 1000);
-      }
 
     } catch (error) {
       console.error('Error calling AI API:', error);
@@ -251,88 +350,6 @@ Please try again in a moment.`,
     }
   };
 
-  const generateAIResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('explain') || input.includes('what does')) {
-      return `I'd be happy to explain that for you! Based on your question about "${userInput}", here's what I can tell you:
-
-## Code Explanation
-
-This appears to be asking about code functionality. To provide a more specific explanation, I would need to see the actual code you're referring to.
-
-**General tips for understanding code:**
-- Look at function names and variable names
-- Follow the data flow from input to output  
-- Break down complex operations into smaller steps
-- Check for any comments or documentation
-
-Would you like to share the specific code you'd like me to explain?`;
-    }
-    
-    if (input.includes('debug') || input.includes('error') || input.includes('problem')) {
-      return `Let me help you debug this issue! 🔍
-
-## Debugging Approach
-
-1. **Identify the symptoms** - What exactly is happening vs. what you expect?
-2. **Check the console** - Are there any error messages?
-3. **Review recent changes** - What was the last thing you modified?
-4. **Use logging** - Add console.log statements to trace execution
-5. **Test incrementally** - Comment out parts to isolate the issue
-
-**Common debugging tools:**
-- Browser DevTools (F12)
-- Console logging
-- Breakpoints
-- Network tab for API issues
-
-Please share the specific error message or code that's causing trouble, and I'll provide more targeted help!`;
-    }
-    
-    if (input.includes('optimize') || input.includes('performance')) {
-      return `Great question about optimization! 🚀
-
-## Performance Optimization Tips
-
-**For JavaScript/React:**
-- Use React.memo() for component optimization
-- Implement lazy loading for components
-- Minimize bundle size with code splitting
-- Use useCallback and useMemo hooks appropriately
-
-**General principles:**
-- Avoid premature optimization
-- Profile before optimizing
-- Focus on bottlenecks first
-- Consider algorithmic improvements
-
-**Tools to help:**
-- React DevTools Profiler
-- Chrome Performance tab
-- Lighthouse audits
-- Bundle analyzers
-
-Share your specific code and I can provide more targeted optimization suggestions!`;
-    }
-    
-    return `Thank you for your question! I understand you're asking about: "${userInput}"
-
-I'm here to help with coding questions, debugging, explanations, and optimizations. To provide the most helpful response, could you:
-
-1. **Share specific code** if you're asking about implementation
-2. **Describe the context** - what are you trying to achieve?
-3. **Include error messages** if you're troubleshooting
-4. **Specify the programming language** you're working with
-
-Feel free to ask follow-up questions or use the quick action buttons for common requests!`;
-  };
-
-  const handleQuickAction = (action: QuickAction) => {
-    setInputMessage(action.prompt);
-    inputRef.current?.focus();
-  };
-
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
   };
@@ -355,6 +372,12 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
         <div className="flex items-center gap-3">
           <Bot className="text-blue-400" size={20} />
           <h2 className="text-lg font-semibold">AI Assistant</h2>
+          {aiStatus.currentBranch && (
+            <div className="flex items-center gap-1 text-sm text-green-400">
+              <GitBranch size={14} />
+              <span>{aiStatus.currentBranch}</span>
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
@@ -403,9 +426,10 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {(message.type === 'ai' || message.type === 'system') && (
+            {(message.type === 'ai' || message.type === 'system' || message.type === 'status') && (
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
-                message.type === 'system' ? 'bg-orange-600' : 'bg-blue-600'
+                message.type === 'system' ? 'bg-orange-600' : 
+                message.type === 'status' ? 'bg-purple-600' : 'bg-blue-600'
               }`}>
                 <Bot size={16} />
               </div>
@@ -418,41 +442,17 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
                   ? 'bg-blue-600 text-white ml-auto' 
                   : message.type === 'system'
                   ? 'bg-orange-600/20 border border-orange-600/30'
+                  : message.type === 'status'
+                  ? 'bg-purple-600/20 border border-purple-600/30'
                   : 'bg-gray-800 border border-gray-700'
                 }
               `}>
-                {(message.type === 'ai' || message.type === 'system') ? (
+                {(message.type === 'ai' || message.type === 'system' || message.type === 'status') ? (
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
                   <p className="whitespace-pre-wrap">{message.content}</p>
-                )}
-                
-                {/* Show action buttons for AI responses with code */}
-                {message.type === 'ai' && message.content.includes('```') && (
-                  <div className="mt-3 pt-3 border-t border-gray-600 flex gap-2">
-                    <button 
-                      onClick={() => {
-                        setSelectedAIResponse(message.content);
-                        setShowCodeGenerator(true);
-                      }}
-                      className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm flex items-center gap-1"
-                    >
-                      <Code size={14} />
-                      Generate Files
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setSelectedAIResponse(message.content);
-                        setShowCodeGenerator(true);
-                      }}
-                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm flex items-center gap-1"
-                    >
-                      <Play size={14} />
-                      Run & Test
-                    </button>
-                  </div>
                 )}
               </div>
               
@@ -493,7 +493,7 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
             <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                <span className="text-gray-400">AI is thinking...</span>
+                <span className="text-gray-400">AI is working...</span>
               </div>
             </div>
           </div>
@@ -501,25 +501,6 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
         
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Quick Actions */}
-      {messages.length <= 1 && (
-        <div className="px-4 py-2 border-t border-gray-700">
-          <div className="text-sm text-gray-400 mb-2">Quick actions:</div>
-          <div className="flex flex-wrap gap-2">
-            {quickActions.map((action) => (
-              <button
-                key={action.id}
-                onClick={() => handleQuickAction(action)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-lg text-sm transition-colors"
-              >
-                {action.icon}
-                {action.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Input Area */}
       <div className="border-t border-gray-700 p-4">
@@ -529,7 +510,7 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me anything about coding..."
+            placeholder="Ask me to build something or explain your code..."
             className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 resize-none focus:outline-none focus:border-blue-500"
             rows={1}
             style={{ minHeight: '40px', maxHeight: '120px' }}
@@ -544,17 +525,9 @@ Feel free to ask follow-up questions or use the quick action buttons for common 
         </div>
         
         <div className="text-xs text-gray-500 mt-2">
-          Press Enter to send, Shift+Enter for new line
+          💡 Ask me to "create a React app" or "explain this code" - I work directly with your files!
         </div>
       </div>
-
-      {/* Code Generator Modal */}
-      {showCodeGenerator && (
-        <CodeGenerator
-          aiResponse={selectedAIResponse}
-          onClose={() => setShowCodeGenerator(false)}
-        />
-      )}
     </div>
   );
 }
