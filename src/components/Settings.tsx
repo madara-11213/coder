@@ -45,7 +45,7 @@ const defaultSettings: SettingsData = {
   wordWrap: true,
   lineNumbers: true,
   tabSize: 2,
-  aiModel: 'gpt-3.5-turbo',
+  aiModel: 'openai',
   terminalFontSize: 14,
   soundEnabled: true
 };
@@ -387,10 +387,28 @@ export default function Settings() {
                 onChange={(e) => updateSetting('aiModel', e.target.value)}
                 className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm min-w-[150px]"
               >
-                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                <option value="gpt-4">GPT-4</option>
-                <option value="claude-3">Claude 3</option>
-                <option value="gemini-pro">Gemini Pro</option>
+                <option value="openai">OpenAI</option>
+                <option value="openai-fast">OpenAI Fast</option>
+                <option value="openai-large">OpenAI Large</option>
+                <option value="openai-roblox">OpenAI Roblox</option>
+                <option value="qwen-coder">Qwen Coder</option>
+                <option value="llama">Llama</option>
+                <option value="llamascout">Llama Scout</option>
+                <option value="mistral">Mistral</option>
+                <option value="unity">Unity</option>
+                <option value="mirexa">Mirexa</option>
+                <option value="midijourney">Midijourney</option>
+                <option value="rtist">Rtist</option>
+                <option value="searchgpt">SearchGPT</option>
+                <option value="evil">Evil</option>
+                <option value="deepseek-reasoning">Deepseek Reasoning</option>
+                <option value="phi">Phi</option>
+                <option value="hormoz">Hormoz</option>
+                <option value="hypnosis-tracy">Hypnosis Tracy</option>
+                <option value="deepseek">Deepseek</option>
+                <option value="grok">Grok</option>
+                <option value="sur">Sur</option>
+                <option value="bidara">Bidara</option>
               </select>
             </SettingRow>
           </SettingSection>

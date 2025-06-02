@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore, initializeSampleProjects } from '@/store/projectStore';
+import { useBranchStore } from '@/store/branchStore';
 import { 
   Folder, 
   File, 
@@ -36,6 +37,7 @@ interface FileNode {
 
 interface ProjectExplorerProps {
   onFileSelect: (filePath: string) => void;
+  currentBranch: any;
 }
 
 interface UploadProgress {
@@ -44,16 +46,14 @@ interface UploadProgress {
   status: 'uploading' | 'extracting' | 'completed' | 'error';
 }
 
-export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) {
+export default function ProjectExplorer({ onFileSelect, currentBranch }: ProjectExplorerProps) {
   const { 
-    fileTree, 
-    setFileTree, 
-    addProject, 
     toggleFolder, 
-    deleteProject,
     createNewFile,
     createNewFolder 
   } = useProjectStore();
+  
+  const { updateBranchFiles } = useBranchStore();
   
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -65,10 +65,10 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
 
   // Initialize with sample projects if none exist
   useEffect(() => {
-    if (fileTree.length === 0) {
+    if (currentBranch && currentBranch.fileTree.length === 0 && currentBranch.isMain) {
       initializeSampleProjects();
     }
-  }, [fileTree.length]);
+  }, [currentBranch?.fileTree.length, currentBranch?.isMain]);
 
 
 
@@ -141,7 +141,9 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
       ]
     };
 
-    setFileTree(prev => [...prev, newProject]);
+    if (currentBranch) {
+      updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, newProject]);
+    }
     progress.status = 'completed';
     progress.progress = 100;
   };
@@ -160,11 +162,11 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
     };
 
     // Add to uploads folder or create it
-    setFileTree(prev => {
-      const uploadsFolder = prev.find(node => node.name === 'uploads');
+    if (currentBranch) {
+      const uploadsFolder = currentBranch.fileTree.find(node => node.name === 'uploads');
       if (uploadsFolder && uploadsFolder.children) {
         uploadsFolder.children.push(newFile);
-        return [...prev];
+        updateBranchFiles(currentBranch.id, [...currentBranch.fileTree]);
       } else {
         const newUploadsFolder: FileNode = {
           name: 'uploads',
@@ -174,9 +176,9 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
           children: [newFile],
           isNew: true
         };
-        return [...prev, newUploadsFolder];
+        updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, newUploadsFolder]);
       }
-    });
+    }
 
     progress.status = 'completed';
     progress.progress = 100;
@@ -223,7 +225,9 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
       children: []
     };
 
-    setFileTree(prev => [...prev, newProject]);
+    if (currentBranch) {
+      updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, newProject]);
+    }
   };
 
   const getFileIcon = (fileName: string) => {
@@ -412,7 +416,7 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {fileTree.length === 0 ? (
+        {!currentBranch || currentBranch.fileTree.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             <FolderPlus size={48} className="mx-auto mb-2 opacity-50" />
             <p>No projects yet</p>
@@ -420,7 +424,7 @@ export default function ProjectExplorer({ onFileSelect }: ProjectExplorerProps) 
           </div>
         ) : (
           <div className="py-2">
-            {fileTree.map(node => renderFileNode(node))}
+            {currentBranch.fileTree.map(node => renderFileNode(node))}
           </div>
         )}
       </div>

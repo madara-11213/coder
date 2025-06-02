@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useProjectStore } from '@/store/projectStore';
+import { useBranchStore } from '@/store/branchStore';
+import BranchSelector from './BranchSelector';
 
 interface Message {
   id: string;
@@ -36,7 +38,16 @@ interface AIStatus {
 }
 
 export default function MainSection() {
-  const { fileTree, generateProjectFromAI } = useProjectStore();
+  const { generateProjectFromAI } = useProjectStore();
+  const { 
+    getCurrentBranch, 
+    updateBranchChat, 
+    updateBranchFiles, 
+    addToSTM, 
+    addToLTM,
+    createBranch 
+  } = useBranchStore();
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +55,8 @@ export default function MainSection() {
   const [aiStatus, setAiStatus] = useState<AIStatus>({ isActive: false, currentAction: '', progress: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  const currentBranch = getCurrentBranch();
 
   const pollinationsModels = [
     'openai',
@@ -70,12 +83,17 @@ export default function MainSection() {
     'bidara'
   ];
 
-  // Sample initial message
+  // Load branch-specific chat history
   useEffect(() => {
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      type: 'ai',
-      content: `# Welcome to AI Code Assistant! 🤖
+    if (currentBranch) {
+      if (currentBranch.chatHistory.length > 0) {
+        setMessages(currentBranch.chatHistory);
+      } else {
+        // Initialize with welcome message for new branches
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          type: 'ai',
+          content: `# Welcome to AI Code Assistant! 🤖
 
 I'm your intelligent coding companion. I can:
 
@@ -91,11 +109,21 @@ I'm your intelligent coding companion. I can:
 - I provide status updates but work behind the scenes
 - Ask me to explain any code - I'll analyze your entire project
 
+**Current Branch: ${currentBranch.name}**
 **Just tell me what you want to build or ask about your code!**`,
-      timestamp: new Date()
-    };
-    setMessages([welcomeMessage]);
-  }, []);
+          timestamp: new Date()
+        };
+        setMessages([welcomeMessage]);
+      }
+    }
+  }, [currentBranch?.id]);
+
+  // Save messages to current branch whenever messages change
+  useEffect(() => {
+    if (currentBranch && messages.length > 0) {
+      updateBranchChat(currentBranch.id, messages);
+    }
+  }, [messages, currentBranch?.id, updateBranchChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -105,8 +133,12 @@ I'm your intelligent coding companion. I can:
     scrollToBottom();
   }, [messages]);
 
-  // Function to get all file contents from the project
-  const getAllFileContents = (nodes: any[]): string => {
+  // Function to get all file contents from the current branch
+  const getAllFileContents = (): string => {
+    if (!currentBranch || !currentBranch.fileTree.length) {
+      return 'No project files currently loaded.';
+    }
+
     let content = '';
     
     const processNode = (node: any, depth: number = 0) => {
@@ -124,13 +156,13 @@ I'm your intelligent coding companion. I can:
       }
     };
 
-    nodes.forEach(node => processNode(node));
+    currentBranch.fileTree.forEach(node => processNode(node));
     return content;
   };
 
   const addStatusMessage = (content: string, status?: string) => {
     const statusMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'status',
       content,
       timestamp: new Date(),
@@ -143,7 +175,7 @@ I'm your intelligent coding companion. I can:
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'user',
       content: inputMessage,
       timestamp: new Date()
@@ -175,18 +207,23 @@ I'm your intelligent coding companion. I can:
       addStatusMessage('🌟 **Starting AI Code Generation**', 'analyzing');
       setAiStatus({ isActive: true, currentAction: 'Creating new branch...', progress: 20 });
       
+      // Create a new branch for AI code generation
+      const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-');
+      const branchName = `ai-code-${timestamp}`;
+      const newBranchId = createBranch(branchName, `AI generated code: ${userInput.slice(0, 50)}...`, true);
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      addStatusMessage('📝 **Creating new branch: ai-generated-code**', 'generating');
-      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: 'ai-generated-code' });
+      addStatusMessage(`📝 **Created new branch: ${branchName}**`, 'generating');
+      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: branchName });
       
       // Call the AI API to generate code
-      const response = await fetch('https://text.pollinations.ai/openai', {
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Referer': 'L0jejdsYQOrz1lFp',
-          'token': 'L0jejdsYQOrz1lFp'
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -195,8 +232,12 @@ I'm your intelligent coding companion. I can:
               role: 'system',
               content: `You are a professional coding assistant. Generate complete, working code based on the user's request. Provide well-structured, commented code that follows best practices. Include all necessary files for a complete project.
 
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-3).join(', ') || 'None'}
+
 ## Current Project Context:
-${fileTree.length > 0 ? getAllFileContents(fileTree) : 'Starting with a new project.'}
+${getAllFileContents()}
 
 Return your response with clear code blocks using \`\`\` syntax and specify file names.`
             },
@@ -210,8 +251,8 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
           seed: Math.floor(Math.random() * 1000000),
           private: true,
           nofeed: true,
-          token: 'L0jejdsYQOrz1lFp',
-          referrer: 'L0jejdsYQOrz1lFp'
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
         })
       });
 
@@ -265,12 +306,12 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
     try {
       setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30 });
       
-      const response = await fetch('https://text.pollinations.ai/openai', {
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Referer': 'L0jejdsYQOrz1lFp',
-          'token': 'L0jejdsYQOrz1lFp'
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
         },
         body: JSON.stringify({
           model: selectedModel,
@@ -279,8 +320,12 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
               role: 'system',
               content: `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
 
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-5).join(', ') || 'None'}
+
 ## Current Project Structure and Files:
-${fileTree.length > 0 ? getAllFileContents(fileTree) : 'No project files currently loaded.'}
+${getAllFileContents()}
 
 You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`
             },
@@ -294,8 +339,8 @@ You have full access to all the files above. When the user asks about code, refe
           seed: Math.floor(Math.random() * 1000000),
           private: true,
           nofeed: true,
-          token: 'L0jejdsYQOrz1lFp',
-          referrer: 'L0jejdsYQOrz1lFp'
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
         })
       });
 
@@ -319,18 +364,24 @@ You have full access to all the files above. When the user asks about code, refe
       }
 
       const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-ai-${Math.random().toString(36).substr(2, 9)}`,
         type: 'ai',
         content: aiContent,
         timestamp: new Date(),
         status: 'completed'
       };
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Add to short term memory
+      if (currentBranch) {
+        addToSTM(currentBranch.id, `User asked: ${userInput.slice(0, 100)}...`);
+        addToSTM(currentBranch.id, `AI explained: ${aiContent.slice(0, 100)}...`);
+      }
 
     } catch (error) {
       console.error('Error calling AI API:', error);
       const errorResponse: Message = {
-        id: (Date.now() + 1).toString(),
+        id: `${Date.now()}-error-${Math.random().toString(36).substr(2, 9)}`,
         type: 'ai',
         content: `❌ **Error connecting to AI service**
 
@@ -372,12 +423,7 @@ Please try again in a moment.`,
         <div className="flex items-center gap-3">
           <Bot className="text-blue-400" size={20} />
           <h2 className="text-lg font-semibold">AI Assistant</h2>
-          {aiStatus.currentBranch && (
-            <div className="flex items-center gap-1 text-sm text-green-400">
-              <GitBranch size={14} />
-              <span>{aiStatus.currentBranch}</span>
-            </div>
-          )}
+          <BranchSelector onBranchChange={() => setMessages([])} />
         </div>
         
         <div className="flex items-center gap-2">
