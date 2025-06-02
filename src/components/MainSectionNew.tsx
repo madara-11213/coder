@@ -325,14 +325,17 @@ Please find the most current and relevant information, including:
     setIsLoading(true);
     setAiStatus({ isActive: true, currentAction: 'Connecting to AI...', progress: 10, isPaused: false });
 
-    // Check if this is a code generation request
-    const isCodeRequest = currentInput.toLowerCase().includes('create') || 
-                         currentInput.toLowerCase().includes('build') || 
-                         currentInput.toLowerCase().includes('generate') ||
-                         currentInput.toLowerCase().includes('make');
+    // Improved detection for different types of requests
+    const isCodeRequest = /\b(create|build|generate|make|develop|code|write)\b.*\b(app|project|component|function|script|program|website|calculator|game|tool)\b/i.test(currentInput) ||
+                         /^(create|build|generate|make|develop|code|write)\b/i.test(currentInput.trim());
+
+    const isEditRequest = /\b(edit|change|modify|update|fix|add|remove|delete|replace)\b.*\b(file|code|function|variable|line|in)\b/i.test(currentInput) ||
+                         /^(edit|change|modify|update|fix|add|remove|delete|replace)\b/i.test(currentInput.trim());
 
     if (isCodeRequest) {
       await handleCodeGeneration(currentInput);
+    } else if (isEditRequest) {
+      await handleFileEditing(currentInput);
     } else {
       await handleNormalChat(currentInput);
     }
@@ -452,6 +455,124 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
     }
   };
 
+  const handleFileEditing = async (userInput: string) => {
+    try {
+      addStatusMessage('✏️ **Starting File Editing Process**', 'analyzing', 10);
+      setAiStatus({ isActive: true, currentAction: 'Analyzing edit request...', progress: 20, isPaused: false });
+      
+      // Check if web search is needed for editing
+      let searchResults = '';
+      if (needsWebSearch(userInput)) {
+        addStatusMessage('🔍 **Searching for latest solutions...**', 'analyzing', 30);
+        setAiStatus({ isActive: true, currentAction: 'Finding current best practices...', progress: 30, isPaused: false });
+        
+        searchResults = await performWebSearch(userInput);
+        addStatusMessage('✅ **Found latest solutions - applying to your code**', 'analyzing', 40);
+      }
+      
+      setAiStatus({ isActive: true, currentAction: 'Modifying files directly...', progress: 50, isPaused: false });
+      addStatusMessage('🔧 **Editing files directly in your project**', 'generating', 50);
+
+      // Call AI to get the file modifications
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional coding assistant that edits files directly. When the user asks you to edit, modify, fix, or change code, provide the complete updated file content in code blocks.
+
+## Current Branch: ${currentBranch?.name || 'main'}
+## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
+## Long Term Memory: ${currentBranch?.longTermMemory.slice(-5).join(', ') || 'None'}
+
+## Current Project Files:
+${getAllFileContents()}
+
+${searchResults ? `## Web Search Results (Latest Solutions):
+${searchResults}
+
+Use the above search results to apply the most current and effective solutions.` : ''}
+
+IMPORTANT: For file edits, you must:
+1. Provide the COMPLETE updated file content in a code block
+2. Use the format: \`\`\`filename.ext to clearly indicate which file to update
+3. Include ALL content of the file, not just the changes
+4. Make sure the code is functional and follows best practices
+5. If creating new files, include them with proper filenames
+
+Return updated files as code blocks so they can be applied directly to the project.`
+            },
+            {
+              role: 'user',
+              content: userInput
+            }
+          ],
+          temperature: 0.7,
+          top_p: 1.0,
+          seed: Math.floor(Math.random() * 1000000),
+          private: true,
+          nofeed: true,
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      
+      let aiContent = responseText;
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message) {
+          aiContent = jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse AI response as JSON, using raw text:', parseError);
+      }
+
+      setAiStatus({ isActive: true, currentAction: 'Applying changes to files...', progress: 70, isPaused: false });
+      addStatusMessage('💾 **Applying changes to project files...**', 'running', 70);
+
+      // Apply the file edits directly
+      const filesUpdated = await applyFileEdits(aiContent);
+      
+      setAiStatus({ isActive: true, currentAction: 'Running error checks...', progress: 90, isPaused: false });
+      addStatusMessage('🔍 **Checking for errors and validating changes...**', 'running', 90);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      if (filesUpdated > 0) {
+        setAiStatus({ isActive: true, currentAction: 'Files updated successfully!', progress: 100, isPaused: false });
+        addStatusMessage(`✅ **Successfully updated ${filesUpdated} file(s)**\n\n📝 Changes applied directly to your project\n🔍 Check the Files section to see updates`, 'completed', 100);
+        
+        // Add to memory
+        if (currentBranch) {
+          addToSTM(currentBranch.id, `Applied file edits: ${userInput.slice(0, 100)}...`);
+          addToSTM(currentBranch.id, `Updated ${filesUpdated} files successfully`);
+        }
+      } else {
+        addStatusMessage('⚠️ **No file changes detected in AI response. Try being more specific about which files to edit.**', 'error', 0);
+      }
+
+    } catch (error) {
+      console.error('Error in file editing:', error);
+      addStatusMessage(`❌ **Error during file editing**: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error', 0);
+    } finally {
+      setIsLoading(false);
+      setAiStatus({ isActive: false, currentAction: '', progress: 0, isPaused: false });
+    }
+  };
+
   const handleNormalChat = async (userInput: string) => {
     try {
       setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30, isPaused: false });
@@ -466,30 +587,7 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
         addStatusMessage('✅ **Web search completed - providing updated answer**', 'analyzing', 50);
       }
       
-      const isEditRequest = userInput.toLowerCase().includes('edit') ||
-                           userInput.toLowerCase().includes('change') || 
-                           userInput.toLowerCase().includes('modify') || 
-                           userInput.toLowerCase().includes('update') || 
-                           userInput.toLowerCase().includes('fix') ||
-                           userInput.toLowerCase().includes('add to') ||
-                           userInput.toLowerCase().includes('remove from');
-
-      const systemPrompt = isEditRequest ? 
-        `You are a professional coding assistant. When the user asks you to edit, modify, or change files, you should provide the updated code in properly formatted code blocks.
-
-## Current Branch: ${currentBranch?.name || 'main'}
-## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
-## Long Term Memory: ${currentBranch?.longTermMemory.slice(-5).join(', ') || 'None'}
-
-## Current Project Structure and Files:
-${getAllFileContents()}
-
-When editing files:
-1. Provide the complete updated file content in a code block
-2. Use the format: \`\`\`filename.ext to clearly indicate which file to update
-3. Include ALL content of the file, not just the changes
-4. Make sure the code is functional and follows best practices` :
-        `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
+      const systemPrompt = `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
 
 ## Current Branch: ${currentBranch?.name || 'main'}
 ## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
@@ -550,17 +648,6 @@ Use the above search results to provide the most current and accurate informatio
         }
       } catch (parseError) {
         console.warn('Could not parse AI response as JSON, using raw text:', parseError);
-      }
-
-      // If this was an edit request, try to apply the changes directly to files
-      if (isEditRequest && currentBranch) {
-        setAiStatus({ isActive: true, currentAction: 'Applying file changes...', progress: 90, isPaused: false });
-        const filesUpdated = await applyFileEdits(aiContent);
-        
-        if (filesUpdated > 0) {
-          addStatusMessage(`✅ **Updated ${filesUpdated} file(s) directly**`, 'completed', 100);
-          addToSTM(currentBranch.id, `Applied edits to ${filesUpdated} files`);
-        }
       }
 
       const aiResponse: Message = {
@@ -803,7 +890,7 @@ Please try again in a moment.`,
               </div>
               
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                <span>{message.timestamp.toLocaleTimeString()}</span>
+                <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                 {message.status && (
                   <span 
                     className={`px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity ${

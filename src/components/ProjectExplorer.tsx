@@ -65,10 +65,10 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
 
   // Initialize with sample projects if none exist
   useEffect(() => {
-    if (currentBranch && currentBranch.fileTree.length === 0 && currentBranch.isMain) {
+    if (currentBranch && currentBranch.fileTree && currentBranch.fileTree.length === 0 && currentBranch.isMain) {
       initializeSampleProjects();
     }
-  }, [currentBranch?.fileTree.length, currentBranch?.isMain]);
+  }, [currentBranch?.fileTree?.length, currentBranch?.isMain]);
 
 
 

@@ -658,7 +658,7 @@ Please try again in a moment.`,
               </div>
               
               <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                <span>{message.timestamp.toLocaleTimeString()}</span>
+                <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                 {message.status && (
                   <span 
                     className={`px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity ${
