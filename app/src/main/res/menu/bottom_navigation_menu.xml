@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_projects"
+        android:icon="@drawable/ic_folder_24"
+        android:title="@string/nav_projects" />
+
+    <item
+        android:id="@+id/nav_editor"
+        android:icon="@drawable/ic_code_24"
+        android:title="@string/nav_editor" />
+
+    <item
+        android:id="@+id/nav_ai_chat"
+        android:icon="@drawable/ic_chat_24"
+        android:title="@string/nav_ai_chat" />
+
+    <item
+        android:id="@+id/nav_terminal"
+        android:icon="@drawable/ic_terminal_24"
+        android:title="@string/nav_terminal" />
+
+    <item
+        android:id="@+id/nav_settings"
+        android:icon="@drawable/ic_settings_24"
+        android:title="@string/nav_settings" />
+
+</menu>

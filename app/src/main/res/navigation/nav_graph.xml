@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/projectsFragment">
+
+    <fragment
+        android:id="@+id/projectsFragment"
+        android:name="com.coder.app.ui.projects.ProjectsFragment"
+        android:label="@string/nav_projects"
+        tools:layout="@layout/fragment_projects">
+        
+        <action
+            android:id="@+id/action_projects_to_editor"
+            app:destination="@id/editorFragment" />
+            
+    </fragment>
+
+    <fragment
+        android:id="@+id/editorFragment"
+        android:name="com.coder.app.ui.editor.EditorFragment"
+        android:label="@string/nav_editor"
+        tools:layout="@layout/fragment_editor">
+        
+        <argument
+            android:name="projectId"
+            app:argType="string"
+            app:nullable="true" />
+            
+        <argument
+            android:name="fileId"
+            app:argType="string"
+            app:nullable="true" />
+            
+    </fragment>
+
+    <fragment
+        android:id="@+id/aiChatFragment"
+        android:name="com.coder.app.ui.chat.AIChatFragment"
+        android:label="@string/nav_ai_chat"
+        tools:layout="@layout/fragment_ai_chat">
+        
+        <argument
+            android:name="projectId"
+            app:argType="string"
+            app:nullable="true" />
+            
+    </fragment>
+
+    <fragment
+        android:id="@+id/terminalFragment"
+        android:name="com.coder.app.ui.terminal.TerminalFragment"
+        android:label="@string/nav_terminal"
+        tools:layout="@layout/fragment_terminal">
+        
+        <argument
+            android:name="projectId"
+            app:argType="string"
+            app:nullable="true" />
+            
+    </fragment>
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.coder.app.ui.settings.SettingsFragment"
+        android:label="@string/nav_settings"
+        tools:layout="@layout/fragment_settings" />
+
+</navigation>
+</mentat_wrap_up>
+
+Now I need to create the drawable resources for the icons and then build the MainActivity class. Let me create the drawable icons first.
+</mentat_notes>
+<mentat_action type="edit">
+<mentat_write_file filepath="app/src/main/res/drawable/ic_add_24.xml">
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorOnSurface">
+  <path
+      android:fillColor="@android:color/white"
+      android:pathData="M19,13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+</vector>
