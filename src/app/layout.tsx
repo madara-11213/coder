@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Coder - Web IDE",
-  description: "A powerful web-based IDE with AI assistance, code editing, and terminal capabilities",
+  title: "Coder - AI Web IDE",
+  description: "A powerful web-based IDE with AI assistance, code editing, and terminal capabilities. Mobile-first responsive design.",
 };
 
 export default function RootLayout({
@@ -24,8 +24,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="theme-color" content="#1f2937" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-900 text-white overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-900 text-white overflow-hidden touch-pan-y`}
       >
         {children}
       </body>

@@ -15,7 +15,9 @@ import {
   Bug,
   Sparkles,
   Loader,
-  GitBranch
+  GitBranch,
+  Pause,
+  Resume
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useProjectStore } from '@/store/projectStore';
@@ -43,6 +45,7 @@ interface AIStatus {
   currentAction: string;
   progress: number;
   currentBranch?: string;
+  isPaused?: boolean;
 }
 
 export default function MainSection() {
@@ -60,7 +63,12 @@ export default function MainSection() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('openai');
-  const [aiStatus, setAiStatus] = useState<AIStatus>({ isActive: false, currentAction: '', progress: 0 });
+  const [aiStatus, setAiStatus] = useState<AIStatus>({ 
+    isActive: false, 
+    currentAction: '', 
+    progress: 0,
+    isPaused: false 
+  });
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusDetail, setSelectedStatusDetail] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,25 +80,12 @@ export default function MainSection() {
     'openai',
     'openai-fast', 
     'openai-large',
-    'openai-roblox',
     'qwen-coder',
     'llama',
-    'llamascout',
     'mistral',
-    'unity',
-    'mirexa',
-    'midijourney',
-    'rtist',
-    'searchgpt',
-    'evil',
     'deepseek-reasoning',
-    'phi',
-    'hormoz',
-    'hypnosis-tracy',
-    'deepseek',
     'grok',
-    'sur',
-    'bidara'
+    'searchgpt'
   ];
 
   // Load branch-specific chat history
@@ -99,28 +94,34 @@ export default function MainSection() {
       if (currentBranch.chatHistory.length > 0) {
         setMessages(currentBranch.chatHistory);
       } else {
-        // Initialize with welcome message for new branches
         const welcomeMessage: Message = {
           id: 'welcome',
           type: 'ai',
           content: `# Welcome to AI Code Assistant! 🤖
 
-I'm your intelligent coding companion. I can:
+I'm your intelligent coding companion with **real-time web search** capabilities. I can:
 
 ## 🔧 **Smart Development**
 - **Analyze** your entire codebase
 - **Generate** complete projects from descriptions
-- **Fix errors** automatically
+- **Fix errors** automatically with latest solutions
 - **Create branches** for changes
+
+## 🌐 **Web-Enhanced Features**
+- **Auto-detect** when current information is needed
+- **Search the web** for latest documentation and examples
+- **Use real-time data** for error solving and best practices
+- **Stay updated** with current technologies and solutions
 
 ## 🎯 **How I Work**
 - I can see and understand all your project files
 - When you ask me to build something, I create a new branch and work directly on files
-- I provide status updates but work behind the scenes
-- Ask me to explain any code - I'll analyze your entire project
+- I automatically search the web for current examples when needed
+- I provide real-time status updates with pause/resume functionality
+- Ask me to explain any code - I'll analyze your entire project with latest info
 
 **Current Branch: ${currentBranch.name}**
-**Just tell me what you want to build or ask about your code!**`,
+**Just tell me what you want to build or ask about your code - I'll use the latest web info!**`,
           timestamp: new Date()
         };
         setMessages([welcomeMessage]);
@@ -142,6 +143,117 @@ I'm your intelligent coding companion. I can:
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Pause/Resume AI functionality
+  const pauseAI = () => {
+    setAiStatus(prev => ({ ...prev, isPaused: true }));
+  };
+
+  const resumeAI = () => {
+    setAiStatus(prev => ({ ...prev, isPaused: false }));
+  };
+
+  // Dynamic web search detection
+  const needsWebSearch = (userInput: string): boolean => {
+    const searchKeywords = [
+      'latest', 'current', 'new', 'recent', 'updated', 'modern',
+      'error:', 'bug:', 'issue:', 'problem:', 'fix', 'solve',
+      'how to', 'tutorial', 'example', 'documentation',
+      'best practices', 'performance', 'optimization',
+      'react 18', 'next.js 14', 'typescript 5', 'node.js',
+      'compatibility', 'deprecated', 'alternative',
+      'library', 'package', 'npm', 'install',
+      'stackoverflow', 'github', 'documentation'
+    ];
+    
+    const lowerInput = userInput.toLowerCase();
+    return searchKeywords.some(keyword => lowerInput.includes(keyword)) ||
+           /error|exception|failed|undefined|null|cannot|does not work/i.test(userInput) ||
+           /\b(20|19)\d{2}\b/.test(userInput) || // Year references
+           /version|update|upgrade|migrate/i.test(userInput);
+  };
+
+  // Perform web search using searchgpt
+  const performWebSearch = async (query: string): Promise<string> => {
+    const currentDateTime = new Date().toLocaleString('en-US', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    try {
+      const searchResponse = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+        },
+        body: JSON.stringify({
+          model: 'searchgpt',
+          messages: [
+            {
+              role: 'system',
+              content: `You are SearchGPT with real-time web search capabilities. Current date and time: ${currentDateTime}
+
+Please search the web for information related to the user's query and provide:
+1. Latest/current information from reliable sources
+2. Code examples if relevant
+3. Best practices and solutions
+4. Recent updates or changes
+5. Links to documentation, Stack Overflow, GitHub, etc.
+
+Focus on providing accurate, up-to-date information that can help solve coding problems or provide current examples.`
+            },
+            {
+              role: 'user',
+              content: `Search for: ${query}
+
+Please find the most current and relevant information, including:
+- Latest documentation and examples
+- Recent solutions to similar problems
+- Current best practices
+- Any recent updates or changes
+- Working code examples`
+            }
+          ],
+          temperature: 0.3,
+          top_p: 0.9,
+          seed: Math.floor(Math.random() * 1000000),
+          private: true,
+          nofeed: true,
+          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+        })
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error(`Search failed: ${searchResponse.status}`);
+      }
+
+      const responseText = await searchResponse.text();
+      
+      let searchResults = responseText;
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message) {
+          searchResults = jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse search response as JSON, using raw text:', parseError);
+      }
+
+      return searchResults;
+    } catch (error) {
+      console.error('Web search failed:', error);
+      return `Unable to perform web search at this time. Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  };
 
   // Function to get all file contents from the current branch
   const getAllFileContents = (): string => {
@@ -192,7 +304,7 @@ I'm your intelligent coding companion. I can:
   const getStatusDescription = (status: string) => {
     switch (status) {
       case 'analyzing': return 'AI is analyzing your request and project structure';
-      case 'generating': return 'Generating code and creating project files';
+      case 'generating': return 'Generating code and creating project files in real-time';
       case 'running': return 'Running tests and validating generated code';
       case 'fixing': return 'Identifying and fixing errors in the code';
       case 'completed': return 'Task completed successfully';
@@ -215,7 +327,7 @@ I'm your intelligent coding companion. I can:
     const currentInput = inputMessage;
     setInputMessage('');
     setIsLoading(true);
-    setAiStatus({ isActive: true, currentAction: 'Connecting to AI...', progress: 10 });
+    setAiStatus({ isActive: true, currentAction: 'Connecting to AI...', progress: 10, isPaused: false });
 
     // Check if this is a code generation request
     const isCodeRequest = currentInput.toLowerCase().includes('create') || 
@@ -224,10 +336,8 @@ I'm your intelligent coding companion. I can:
                          currentInput.toLowerCase().includes('make');
 
     if (isCodeRequest) {
-      // For code generation, work directly on files
       await handleCodeGeneration(currentInput);
     } else {
-      // For explanations, discussions, etc.
       await handleNormalChat(currentInput);
     }
   };
@@ -235,7 +345,7 @@ I'm your intelligent coding companion. I can:
   const handleCodeGeneration = async (userInput: string) => {
     try {
       addStatusMessage('🌟 **Starting AI Code Generation**', 'analyzing', 10);
-      setAiStatus({ isActive: true, currentAction: 'Creating new branch...', progress: 20 });
+      setAiStatus({ isActive: true, currentAction: 'Creating new branch...', progress: 20, isPaused: false });
       
       // Create a new branch for AI code generation
       const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-');
@@ -244,8 +354,18 @@ I'm your intelligent coding companion. I can:
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      // Check if web search is needed
+      let searchResults = '';
+      if (needsWebSearch(userInput)) {
+        addStatusMessage('🔍 **Searching the web for latest information...**', 'analyzing', 30);
+        setAiStatus({ isActive: true, currentAction: 'Searching web for current examples...', progress: 30, isPaused: false });
+        
+        searchResults = await performWebSearch(userInput);
+        addStatusMessage('✅ **Web search completed - using latest information**', 'analyzing', 35);
+      }
+      
       addStatusMessage(`📝 **Created new branch: ${branchName}**`, 'generating', 40);
-      setAiStatus({ isActive: true, currentAction: 'Generating code...', progress: 40, currentBranch: branchName });
+      setAiStatus({ isActive: true, currentAction: 'Generating code with latest info...', progress: 40, currentBranch: branchName, isPaused: false });
       
       // Call the AI API to generate code
       const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
@@ -268,6 +388,11 @@ I'm your intelligent coding companion. I can:
 
 ## Current Project Context:
 ${getAllFileContents()}
+
+${searchResults ? `## Web Search Results (Latest Information):
+${searchResults}
+
+Use the above search results to ensure you're using the most current and best practices. Incorporate any relevant examples, solutions, or updated approaches found in the search results.` : ''}
 
 Return your response with clear code blocks using \`\`\` syntax and specify file names.`
             },
@@ -292,7 +417,6 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
 
       const responseText = await response.text();
       
-      // Parse the JSON response to extract the actual message content
       let aiResponse = responseText;
       try {
         const jsonResponse = JSON.parse(responseText);
@@ -303,7 +427,7 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
         console.warn('Could not parse AI response as JSON, using raw text:', parseError);
       }
 
-      setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60 });
+      setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60, isPaused: false });
       addStatusMessage('⚡ **Generating project structure...**', 'generating', 60);
       
       // Generate the actual project
@@ -311,13 +435,13 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      setAiStatus({ isActive: true, currentAction: 'Testing generated code...', progress: 80 });
+      setAiStatus({ isActive: true, currentAction: 'Testing generated code...', progress: 80, isPaused: false });
       addStatusMessage('🧪 **Running tests and validations...**', 'running', 80);
       
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (project) {
-        setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100 });
+        setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100, isPaused: false });
         addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed', 100);
       } else {
         addStatusMessage('⚠️ **No code blocks found in AI response. Try being more specific about what you want to build.**', 'error', 0);
@@ -328,16 +452,25 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       addStatusMessage(`❌ **Error during code generation**: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error', 0);
     } finally {
       setIsLoading(false);
-      setAiStatus({ isActive: false, currentAction: '', progress: 0 });
+      setAiStatus({ isActive: false, currentAction: '', progress: 0, isPaused: false });
     }
   };
 
   const handleNormalChat = async (userInput: string) => {
     try {
-      setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30 });
+      setAiStatus({ isActive: true, currentAction: 'Analyzing your question...', progress: 30, isPaused: false });
       
-      // Check if this is a request to edit files
-      const isEditRequest = userInput.toLowerCase().includes('edit') || 
+      // Check if web search is needed for chat responses
+      let searchResults = '';
+      if (needsWebSearch(userInput)) {
+        addStatusMessage('🔍 **Searching the web for latest information...**', 'analyzing', 40);
+        setAiStatus({ isActive: true, currentAction: 'Searching web for current info...', progress: 40, isPaused: false });
+        
+        searchResults = await performWebSearch(userInput);
+        addStatusMessage('✅ **Web search completed - providing updated answer**', 'analyzing', 50);
+      }
+      
+      const isEditRequest = userInput.toLowerCase().includes('edit') ||
                            userInput.toLowerCase().includes('change') || 
                            userInput.toLowerCase().includes('modify') || 
                            userInput.toLowerCase().includes('update') || 
@@ -359,9 +492,7 @@ When editing files:
 1. Provide the complete updated file content in a code block
 2. Use the format: \`\`\`filename.ext to clearly indicate which file to update
 3. Include ALL content of the file, not just the changes
-4. Make sure the code is functional and follows best practices
-
-If explaining or discussing code, provide detailed, helpful explanations based on the actual files.` :
+4. Make sure the code is functional and follows best practices` :
         `You are a professional coding assistant. You have access to the user's entire project and can analyze, explain, and discuss their code.
 
 ## Current Branch: ${currentBranch?.name || 'main'}
@@ -371,7 +502,12 @@ If explaining or discussing code, provide detailed, helpful explanations based o
 ## Current Project Structure and Files:
 ${getAllFileContents()}
 
-You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.`;
+You have full access to all the files above. When the user asks about code, refers to files, or wants explanations, reference and analyze the relevant files from the project structure. Provide detailed, helpful explanations based on the actual code.
+
+${searchResults ? `## Web Search Results (Latest Information):
+${searchResults}
+
+Use the above search results to provide the most current and accurate information. Reference recent examples, updated documentation, and current best practices found in the search results.` : ''}`;
       
       const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
         method: 'POST',
@@ -402,7 +538,7 @@ You have full access to all the files above. When the user asks about code, refe
         })
       });
 
-      setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 80 });
+      setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 80, isPaused: false });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -410,7 +546,6 @@ You have full access to all the files above. When the user asks about code, refe
 
       const responseText = await response.text();
       
-      // Parse the JSON response to extract the actual message content
       let aiContent = responseText;
       try {
         const jsonResponse = JSON.parse(responseText);
@@ -423,7 +558,7 @@ You have full access to all the files above. When the user asks about code, refe
 
       // If this was an edit request, try to apply the changes directly to files
       if (isEditRequest && currentBranch) {
-        setAiStatus({ isActive: true, currentAction: 'Applying file changes...', progress: 90 });
+        setAiStatus({ isActive: true, currentAction: 'Applying file changes...', progress: 90, isPaused: false });
         const filesUpdated = await applyFileEdits(aiContent);
         
         if (filesUpdated > 0) {
@@ -441,7 +576,6 @@ You have full access to all the files above. When the user asks about code, refe
       };
       setMessages(prev => [...prev, aiResponse]);
       
-      // Add to short term memory
       if (currentBranch) {
         addToSTM(currentBranch.id, `User asked: ${userInput.slice(0, 100)}...`);
         addToSTM(currentBranch.id, `AI explained: ${aiContent.slice(0, 100)}...`);
@@ -466,7 +600,7 @@ Please try again in a moment.`,
       setMessages(prev => [...prev, errorResponse]);
     } finally {
       setIsLoading(false);
-      setAiStatus({ isActive: false, currentAction: '', progress: 0 });
+      setAiStatus({ isActive: false, currentAction: '', progress: 0, isPaused: false });
     }
   };
 
@@ -475,25 +609,21 @@ Please try again in a moment.`,
     
     let filesUpdated = 0;
     
-    // Extract code blocks with filenames
     const codeBlockRegex = /```(\w+)?\s*(?:\/\/\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g;
     const filenameRegex = /```([^`\n]+)\n([\s\S]*?)```/g;
     
     let match;
     const updates: { filename: string; content: string }[] = [];
     
-    // First try to match blocks with explicit filenames
     while ((match = filenameRegex.exec(aiResponse)) !== null) {
       const potentialFilename = match[1].trim();
       const content = match[2].trim();
       
-      // Check if it looks like a filename (has extension and no spaces)
       if (potentialFilename.includes('.') && !potentialFilename.includes(' ')) {
         updates.push({ filename: potentialFilename, content });
       }
     }
     
-    // If no explicit filenames found, try the code block regex
     if (updates.length === 0) {
       while ((match = codeBlockRegex.exec(aiResponse)) !== null) {
         const language = match[1] || '';
@@ -506,7 +636,6 @@ Please try again in a moment.`,
       }
     }
     
-    // Apply updates to files
     for (const update of updates) {
       const updated = updateFileInBranch(currentBranch.fileTree, update.filename, update.content);
       if (updated) {
@@ -542,7 +671,7 @@ Please try again in a moment.`,
   };
 
   const clearChat = () => {
-    setMessages(messages.slice(0, 1)); // Keep welcome message
+    setMessages(messages.slice(0, 1));
   };
 
   const handleStatusClick = (message: Message) => {
@@ -560,83 +689,103 @@ Please try again in a moment.`,
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900">
+    <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-3 sm:px-4 py-3">
+      <div className="bg-gray-800 border-b border-gray-700 px-3 sm:px-4 py-3 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <Bot className="text-blue-400 flex-shrink-0" size={20} />
-            <h2 className="text-base sm:text-lg font-semibold truncate">AI Assistant</h2>
-            <div className="hidden sm:block">
+            <h2 className="text-base sm:text-lg font-semibold truncate">AI Code Assistant</h2>
+            <div className="hidden lg:block">
               <BranchSelector onBranchChange={() => setMessages([])} />
             </div>
           </div>
           
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          <select 
-            value={selectedModel} 
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="bg-gray-700 border border-gray-600 rounded px-1 sm:px-2 py-1 text-xs sm:text-sm w-20 sm:w-auto"
-            title="Select AI Model"
-          >
-            {pollinationsModels.map(model => (
-              <option key={model} value={model}>
-                {model.charAt(0).toUpperCase() + model.slice(1).replace('-', ' ')}
-              </option>
-            ))}
-          </select>
-          
-          <button 
-            onClick={clearChat}
-            className="p-1 hover:bg-gray-700 rounded" 
-            title="Clear chat"
-          >
-            <Trash2 size={16} />
-          </button>
-          
-          <button className="p-1 hover:bg-gray-700 rounded" title="Settings">
-            <SettingsIcon size={16} />
-          </button>
+            <select 
+              value={selectedModel} 
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="bg-gray-700 border border-gray-600 rounded px-1 sm:px-2 py-1 text-xs sm:text-sm w-24 sm:w-auto"
+              title="Select AI Model"
+            >
+              {pollinationsModels.map(model => (
+                <option key={model} value={model}>
+                  {model.charAt(0).toUpperCase() + model.slice(1).replace('-', ' ')}
+                </option>
+              ))}
+            </select>
+            
+            <button 
+              onClick={clearChat}
+              className="p-1 hover:bg-gray-700 rounded" 
+              title="Clear chat"
+            >
+              <Trash2 size={16} />
+            </button>
           </div>
         </div>
         
-        {/* Branch Selector - Full width on mobile */}
-        <div className="sm:hidden mt-3 pt-3 border-t border-gray-700">
+        {/* Branch Selector - Full width on mobile/tablet */}
+        <div className="lg:hidden mt-3 pt-3 border-t border-gray-700">
           <BranchSelector onBranchChange={() => setMessages([])} />
         </div>
       </div>
 
       {/* AI Status Bar */}
       {aiStatus.isActive && (
-        <div className="bg-blue-600 text-white px-4 py-2 text-sm flex items-center gap-2">
-          <Loader className="animate-spin" size={16} />
-          <span>{aiStatus.currentAction}</span>
-          <div className="flex-1 bg-blue-800 rounded-full h-2 ml-2">
+        <div className="bg-blue-600 text-white px-3 sm:px-4 py-2 text-sm flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {aiStatus.isPaused ? (
+              <Pause className="animate-pulse flex-shrink-0" size={16} />
+            ) : (
+              <Loader className="animate-spin flex-shrink-0" size={16} />
+            )}
+            <span className="truncate">{aiStatus.currentAction}</span>
+          </div>
+          <div className="hidden sm:flex flex-1 bg-blue-800 rounded-full h-2 ml-2 max-w-[200px]">
             <div 
               className="bg-white h-2 rounded-full transition-all duration-300"
               style={{ width: `${aiStatus.progress}%` }}
             />
           </div>
+          {aiStatus.isActive && !aiStatus.isPaused && (
+            <button
+              onClick={pauseAI}
+              className="ml-2 p-1 bg-blue-700 hover:bg-blue-800 rounded text-xs flex-shrink-0"
+              title="Pause AI"
+            >
+              <Pause size={14} />
+            </button>
+          )}
+          {aiStatus.isPaused && (
+            <button
+              onClick={resumeAI}
+              className="ml-2 p-1 bg-green-600 hover:bg-green-700 rounded text-xs flex-shrink-0"
+              title="Resume AI"
+            >
+              <Play size={14} />
+            </button>
+          )}
         </div>
       )}
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {messages.map((message) => (
-          <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={message.id} className={`flex gap-2 sm:gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
             {(message.type === 'ai' || message.type === 'system' || message.type === 'status') && (
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
+              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
                 message.type === 'system' ? 'bg-orange-600' : 
                 message.type === 'status' ? 'bg-purple-600' : 'bg-blue-600'
               }`}>
-                <Bot size={16} />
+                <Bot size={14} className="sm:w-4 sm:h-4" />
               </div>
             )}
             
-            <div className={`max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
+            <div className={`max-w-[85%] sm:max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
               <div 
                 className={`
-                  rounded-lg px-4 py-3 
+                  rounded-lg px-3 py-2 sm:px-4 sm:py-3 
                   ${message.type === 'user' 
                     ? 'bg-blue-600 text-white ml-auto' 
                     : message.type === 'system'
@@ -649,11 +798,11 @@ Please try again in a moment.`,
                 onClick={() => message.type === 'status' && handleStatusClick(message)}
               >
                 {(message.type === 'ai' || message.type === 'system' || message.type === 'status') ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
+                  <div className="prose prose-invert prose-sm sm:prose-base max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap">{message.content}</p>
+                  <p className="whitespace-pre-wrap text-sm sm:text-base">{message.content}</p>
                 )}
               </div>
               
@@ -683,22 +832,22 @@ Please try again in a moment.`,
             </div>
             
             {message.type === 'user' && (
-              <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                <User size={16} />
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <User size={14} className="sm:w-4 sm:h-4" />
               </div>
             )}
           </div>
         ))}
         
         {isLoading && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot size={16} />
+          <div className="flex gap-2 sm:gap-3">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <Bot size={14} className="sm:w-4 sm:h-4" />
             </div>
-            <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-3">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 sm:px-4 sm:py-3">
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                <span className="text-gray-400">AI is working...</span>
+                <span className="text-gray-400 text-sm sm:text-base">AI is working...</span>
               </div>
             </div>
           </div>
@@ -708,28 +857,28 @@ Please try again in a moment.`,
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-700 p-4">
-        <div className="flex gap-3">
+      <div className="border-t border-gray-700 p-3 sm:p-4 pb-safe flex-shrink-0">
+        <div className="flex gap-2 sm:gap-3">
           <textarea
             ref={inputRef}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask me to build something or explain your code..."
-            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 resize-none focus:outline-none focus:border-blue-500"
+            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 sm:px-4 sm:py-2 resize-none focus:outline-none focus:border-blue-500 text-sm sm:text-base"
             rows={1}
             style={{ minHeight: '40px', maxHeight: '120px' }}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputMessage.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg px-4 py-2 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 sm:px-4 sm:py-2 transition-colors flex-shrink-0"
           >
             <Send size={16} />
           </button>
         </div>
         
-        <div className="text-xs text-gray-500 mt-2">
+        <div className="text-xs text-gray-500 mt-2 px-1">
           💡 Ask me to "create a React app" or "explain this code" - I work directly with your files!
         </div>
       </div>
