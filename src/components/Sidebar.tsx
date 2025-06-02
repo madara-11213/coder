@@ -9,16 +9,14 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeView: 'explorer' | 'editor' | 'chat' | 'terminal' | 'settings';
-  onViewChange: (view: 'explorer' | 'editor' | 'chat' | 'terminal' | 'settings') => void;
+  activeView: 'main' | 'files' | 'settings';
+  onViewChange: (view: 'main' | 'files' | 'settings') => void;
 }
 
 export default function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const menuItems = [
-    { id: 'explorer' as const, icon: FolderOpen, label: 'Explorer', tooltip: 'File Explorer' },
-    { id: 'editor' as const, icon: Code2, label: 'Editor', tooltip: 'Code Editor' },
-    { id: 'chat' as const, icon: MessageSquare, label: 'AI Chat', tooltip: 'AI Assistant' },
-    { id: 'terminal' as const, icon: TerminalIcon, label: 'Terminal', tooltip: 'Terminal' },
+    { id: 'main' as const, icon: MessageSquare, label: 'Main', tooltip: 'AI Assistant & Chat' },
+    { id: 'files' as const, icon: FolderOpen, label: 'Files', tooltip: 'File Manager & Branches' },
     { id: 'settings' as const, icon: SettingsIcon, label: 'Settings', tooltip: 'Settings' },
   ];
 

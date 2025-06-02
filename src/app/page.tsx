@@ -3,29 +3,24 @@
 import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ProjectExplorer from '@/components/ProjectExplorer';
-import CodeEditor from '@/components/CodeEditor';
-import AIChatPanel from '@/components/AIChatPanel';
-import Terminal from '@/components/Terminal';
+import MainSection from '@/components/MainSection';
 import Settings from '@/components/Settings';
+import { useProjectStore } from '@/store/projectStore';
 
 export default function Home() {
-  const [activeView, setActiveView] = useState<'explorer' | 'editor' | 'chat' | 'terminal' | 'settings'>('explorer');
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'main' | 'files' | 'settings'>('main');
+  const { selectedFile, setSelectedFile } = useProjectStore();
 
   const renderMainContent = () => {
     switch (activeView) {
-      case 'explorer':
+      case 'main':
+        return <MainSection />;
+      case 'files':
         return <ProjectExplorer onFileSelect={setSelectedFile} />;
-      case 'editor':
-        return <CodeEditor selectedFile={selectedFile} />;
-      case 'chat':
-        return <AIChatPanel />;
-      case 'terminal':
-        return <Terminal />;
       case 'settings':
         return <Settings />;
       default:
-        return <ProjectExplorer onFileSelect={setSelectedFile} />;
+        return <MainSection />;
     }
   };
 
