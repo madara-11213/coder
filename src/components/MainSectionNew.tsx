@@ -76,17 +76,13 @@ export default function MainSection() {
   
   const currentBranch = getCurrentBranch();
 
-  const pollinationsModels = [
-    'openai',
-    'openai-fast', 
-    'openai-large',
-    'qwen-coder',
-    'llama',
-    'mistral',
-    'deepseek-reasoning',
-    'grok',
-    'searchgpt'
-  ];
+  // Get available models from environment variables
+  const getAvailableModels = () => {
+    const modelsString = process.env.NEXT_PUBLIC_AI_MODELS || 'openai,openai-fast,openai-large,qwen-coder,llama,mistral,deepseek-reasoning,grok,searchgpt';
+    return modelsString.split(',').map(model => model.trim());
+  };
+
+  const pollinationsModels = getAvailableModels();
 
   // Load branch-specific chat history
   useEffect(() => {
