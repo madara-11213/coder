@@ -137,18 +137,17 @@ I'm your intelligent coding companion with **real-time web search** capabilities
   }, [currentBranch]);
 
   // Save messages to current branch whenever messages change
+  const lastSavedMessages = useRef<string>('');
   useEffect(() => {
     if (currentBranch && messages.length > 0) {
-      // Only update if messages are different from what's stored
-      const storedMessages = currentBranch.chatHistory;
-      const messagesChanged = storedMessages.length !== messages.length || 
-        JSON.stringify(storedMessages) !== JSON.stringify(messages);
-      
-      if (messagesChanged) {
+      const messagesString = JSON.stringify(messages);
+      // Only update if messages are actually different from what we last saved
+      if (messagesString !== lastSavedMessages.current) {
+        lastSavedMessages.current = messagesString;
         updateBranchChat(currentBranch.id, messages);
       }
     }
-  }, [messages, currentBranch?.id]);
+  }, [messages, currentBranch?.id, updateBranchChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -201,19 +200,25 @@ I'm your intelligent coding companion with **real-time web search** capabilities
     });
 
     try {
-      const searchResponse = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
-          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
-        },
-        body: JSON.stringify({
-          model: 'searchgpt',
-          messages: [
-            {
-              role: 'system',
-              content: `You are SearchGPT with real-time web search capabilities. Current date and time: ${currentDateTime}
+      let searchResponse;
+      let retryCount = 0;
+      const maxRetries = 2; // Fewer retries for search to avoid long delays
+      
+      while (retryCount < maxRetries) {
+        try {
+          searchResponse = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+              'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+            },
+            body: JSON.stringify({
+              model: 'searchgpt',
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are SearchGPT with real-time web search capabilities. Current date and time: ${currentDateTime}
 
 Please search the web for information related to the user's query and provide:
 1. Latest/current information from reliable sources
@@ -223,10 +228,10 @@ Please search the web for information related to the user's query and provide:
 5. Links to documentation, Stack Overflow, GitHub, etc.
 
 Focus on providing accurate, up-to-date information that can help solve coding problems or provide current examples.`
-            },
-            {
-              role: 'user',
-              content: `Search for: ${query}
+                },
+                {
+                  role: 'user',
+                  content: `Search for: ${query}
 
 Please find the most current and relevant information, including:
 - Latest documentation and examples
@@ -234,20 +239,38 @@ Please find the most current and relevant information, including:
 - Current best practices
 - Any recent updates or changes
 - Working code examples`
-            }
-          ],
-          temperature: 0.3,
-          top_p: 0.9,
-          seed: Math.floor(Math.random() * 1000000),
-          private: true,
-          nofeed: true,
-          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
-          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
-        })
-      });
+                }
+              ],
+              temperature: 0.3,
+              top_p: 0.9,
+              seed: Math.floor(Math.random() * 1000000),
+              private: true,
+              nofeed: true,
+              token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+              referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+            })
+          });
 
-      if (!searchResponse.ok) {
-        throw new Error(`Search failed: ${searchResponse.status}`);
+          if (searchResponse.ok) {
+            break; // Success, exit retry loop
+          } else if (searchResponse.status === 503) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, retryCount * 1500)); // Short delay for search retries
+              continue;
+            } else {
+              throw new Error(`Search service unavailable (503). Proceeding without web search.`);
+            }
+          } else {
+            throw new Error(`Search failed: ${searchResponse.status}`);
+          }
+        } catch (error) {
+          if (retryCount >= maxRetries - 1) {
+            throw error; // Re-throw if we've exhausted retries
+          }
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+        }
       }
 
       const responseText = await searchResponse.text();
@@ -384,20 +407,26 @@ Please find the most current and relevant information, including:
       addStatusMessage(`📝 **Created new branch: ${branchName}**`, 'generating', 40);
       setAiStatus({ isActive: true, currentAction: 'Generating code with latest info...', progress: 40, currentBranch: branchName, isPaused: false });
       
-      // Call the AI API to generate code
-      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
-          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: 'system',
-              content: `You are a professional coding assistant. Generate ONLY the essential files needed for the user's request. Focus on creating minimal, working code.
+      // Call the AI API to generate code with retry logic
+      let response;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+              'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are a professional coding assistant. Generate ONLY the essential files needed for the user's request. Focus on creating minimal, working code.
 
 IMPORTANT RULES:
 1. Only create files that are absolutely necessary for the requested functionality
@@ -429,24 +458,44 @@ function calculate() {
 \`\`\`
 
 Generate only essential files with proper names. NO package.json, README, or other config files unless specifically requested.`
-            },
-            {
-              role: 'user',
-              content: userInput
-            }
-          ],
-          temperature: 0.7,
-          top_p: 1.0,
-          seed: Math.floor(Math.random() * 1000000),
-          private: true,
-          nofeed: true,
-          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
-          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
-        })
-      });
+                },
+                {
+                  role: 'user',
+                  content: userInput
+                }
+              ],
+              temperature: 0.7,
+              top_p: 1.0,
+              seed: Math.floor(Math.random() * 1000000),
+              private: true,
+              nofeed: true,
+              token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+              referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+            })
+          });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+          if (response.ok) {
+            break; // Success, exit retry loop
+          } else if (response.status === 503) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              addStatusMessage(`⏳ **API temporarily unavailable (${response.status}). Retrying in ${retryCount * 2} seconds... (${retryCount}/${maxRetries})**`, 'analyzing', 40 + (retryCount * 5));
+              await new Promise(resolve => setTimeout(resolve, retryCount * 2000)); // Exponential backoff
+              continue;
+            } else {
+              throw new Error(`API service unavailable (503). The AI service is currently experiencing high load. Please try again in a few minutes.`);
+            }
+          } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+        } catch (error) {
+          if (retryCount >= maxRetries - 1) {
+            throw error; // Re-throw if we've exhausted retries
+          }
+          retryCount++;
+          addStatusMessage(`⚠️ **Connection issue. Retrying... (${retryCount}/${maxRetries})**`, 'analyzing', 40 + (retryCount * 5));
+          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+        }
       }
 
       const responseText = await response.text();
@@ -512,20 +561,26 @@ Generate only essential files with proper names. NO package.json, README, or oth
       setAiStatus({ isActive: true, currentAction: 'Modifying files directly...', progress: 50, isPaused: false });
       addStatusMessage('🔧 **Editing files directly in your project**', 'generating', 50);
 
-      // Call AI to get the file modifications
-      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
-          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: 'system',
-              content: `You are a professional coding assistant that edits files directly. When the user asks you to edit, modify, fix, or change code, provide the complete updated file content in code blocks.
+      // Call AI to get the file modifications with retry logic
+      let response;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+              'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+            },
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: [
+                {
+                  role: 'system',
+                  content: `You are a professional coding assistant that edits files directly. When the user asks you to edit, modify, fix, or change code, provide the complete updated file content in code blocks.
 
 ## Current Branch: ${currentBranch?.name || 'main'}
 ## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
@@ -547,24 +602,44 @@ IMPORTANT: For file edits, you must:
 5. If creating new files, include them with proper filenames
 
 Return updated files as code blocks so they can be applied directly to the project.`
-            },
-            {
-              role: 'user',
-              content: userInput
-            }
-          ],
-          temperature: 0.7,
-          top_p: 1.0,
-          seed: Math.floor(Math.random() * 1000000),
-          private: true,
-          nofeed: true,
-          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
-          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
-        })
-      });
+                },
+                {
+                  role: 'user',
+                  content: userInput
+                }
+              ],
+              temperature: 0.7,
+              top_p: 1.0,
+              seed: Math.floor(Math.random() * 1000000),
+              private: true,
+              nofeed: true,
+              token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+              referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+            })
+          });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+          if (response.ok) {
+            break; // Success, exit retry loop
+          } else if (response.status === 503) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              addStatusMessage(`⏳ **API temporarily unavailable (${response.status}). Retrying in ${retryCount * 2} seconds... (${retryCount}/${maxRetries})**`, 'analyzing', 50 + (retryCount * 5));
+              await new Promise(resolve => setTimeout(resolve, retryCount * 2000)); // Exponential backoff
+              continue;
+            } else {
+              throw new Error(`API service unavailable (503). The AI service is currently experiencing high load. Please try again in a few minutes.`);
+            }
+          } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+        } catch (error) {
+          if (retryCount >= maxRetries - 1) {
+            throw error; // Re-throw if we've exhausted retries
+          }
+          retryCount++;
+          addStatusMessage(`⚠️ **Connection issue. Retrying... (${retryCount}/${maxRetries})**`, 'analyzing', 50 + (retryCount * 5));
+          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+        }
       }
 
       const responseText = await response.text();
@@ -642,40 +717,66 @@ ${searchResults}
 
 Use the above search results to provide the most current and accurate information. Reference recent examples, updated documentation, and current best practices found in the search results.` : ''}`;
       
-      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
-          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
+      let response;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+              'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
             },
-            {
-              role: 'user',
-              content: userInput
+            body: JSON.stringify({
+              model: selectedModel,
+              messages: [
+                {
+                  role: 'system',
+                  content: systemPrompt
+                },
+                {
+                  role: 'user',
+                  content: userInput
+                }
+              ],
+              temperature: 0.7,
+              top_p: 1.0,
+              seed: Math.floor(Math.random() * 1000000),
+              private: true,
+              nofeed: true,
+              token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
+              referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
+            })
+          });
+
+          if (response.ok) {
+            break; // Success, exit retry loop
+          } else if (response.status === 503) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+              setAiStatus({ isActive: true, currentAction: `API temporarily unavailable. Retrying in ${retryCount * 2} seconds... (${retryCount}/${maxRetries})`, progress: 70 + (retryCount * 5), isPaused: false });
+              await new Promise(resolve => setTimeout(resolve, retryCount * 2000)); // Exponential backoff
+              continue;
+            } else {
+              throw new Error(`API service unavailable (503). The AI service is currently experiencing high load. Please try again in a few minutes.`);
             }
-          ],
-          temperature: 0.7,
-          top_p: 1.0,
-          seed: Math.floor(Math.random() * 1000000),
-          private: true,
-          nofeed: true,
-          token: process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || '',
-          referrer: process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || ''
-        })
-      });
+          } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+        } catch (error) {
+          if (retryCount >= maxRetries - 1) {
+            throw error; // Re-throw if we've exhausted retries
+          }
+          retryCount++;
+          setAiStatus({ isActive: true, currentAction: `Connection issue. Retrying... (${retryCount}/${maxRetries})`, progress: 70 + (retryCount * 5), isPaused: false });
+          await new Promise(resolve => setTimeout(resolve, retryCount * 1000));
+        }
+      }
 
       setAiStatus({ isActive: true, currentAction: 'Processing response...', progress: 80, isPaused: false });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
 
       const responseText = await response.text();
       
@@ -1069,22 +1170,22 @@ Please try again in a moment.`,
 
   return (
     <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
-      {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 px-3 sm:px-4 py-3 flex-shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <Bot className="text-blue-400 flex-shrink-0" size={20} />
-            <h2 className="text-base sm:text-lg font-semibold truncate">AI Code Assistant</h2>
+      {/* Header - Mobile Optimized */}
+      <div className="bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <Bot className="text-blue-400 flex-shrink-0" size={24} />
+            <h2 className="text-lg sm:text-xl font-semibold truncate">AI Code Assistant</h2>
             <div className="hidden lg:block">
               <BranchSelector onBranchChange={() => setMessages([])} />
             </div>
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <select 
               value={selectedModel} 
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="bg-gray-700 border border-gray-600 rounded px-1 sm:px-2 py-1 text-xs sm:text-sm w-24 sm:w-auto"
+              className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm min-h-[44px] min-w-[120px] touch-feedback"
               title="Select AI Model"
             >
               {pollinationsModels.map(model => (
@@ -1096,81 +1197,85 @@ Please try again in a moment.`,
             
             <button 
               onClick={clearChat}
-              className="p-1 hover:bg-gray-700 rounded" 
+              className="p-3 hover:bg-gray-700 rounded-lg touch-feedback min-h-[44px] min-w-[44px] flex items-center justify-center" 
               title="Clear chat"
             >
-              <Trash2 size={16} />
+              <Trash2 size={18} />
             </button>
           </div>
         </div>
         
         {/* Branch Selector - Full width on mobile/tablet */}
-        <div className="lg:hidden mt-3 pt-3 border-t border-gray-700">
+        <div className="lg:hidden mt-4 pt-4 border-t border-gray-700">
           <BranchSelector onBranchChange={() => setMessages([])} />
         </div>
       </div>
 
-      {/* AI Status Bar */}
+      {/* AI Status Bar - Mobile Optimized */}
       {aiStatus.isActive && (
-        <div className="bg-blue-600 text-white px-3 sm:px-4 py-2 text-sm flex items-center gap-2 flex-shrink-0">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="bg-blue-600 text-white px-4 py-3 text-sm flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             {aiStatus.isPaused ? (
-              <Pause className="animate-pulse flex-shrink-0" size={16} />
+              <Pause className="animate-pulse flex-shrink-0" size={18} />
             ) : (
-              <Loader className="animate-spin flex-shrink-0" size={16} />
+              <Loader className="animate-spin flex-shrink-0" size={18} />
             )}
-            <span className="truncate">{aiStatus.currentAction}</span>
+            <span className="truncate text-sm sm:text-base font-medium">{aiStatus.currentAction}</span>
           </div>
-          <div className="hidden sm:flex flex-1 bg-blue-800 rounded-full h-2 ml-2 max-w-[200px]">
+          
+          {/* Progress bar - Show on mobile but smaller */}
+          <div className="flex flex-1 bg-blue-800 rounded-full h-2 sm:h-3 ml-2 max-w-[120px] sm:max-w-[200px]">
             <div 
-              className="bg-white h-2 rounded-full transition-all duration-300"
+              className="bg-white h-2 sm:h-3 rounded-full transition-all duration-300"
               style={{ width: `${aiStatus.progress}%` }}
             />
           </div>
+          
+          {/* Control buttons with better mobile touch targets */}
           {aiStatus.isActive && !aiStatus.isPaused && (
             <button
               onClick={pauseAI}
-              className="ml-2 p-1 bg-blue-700 hover:bg-blue-800 rounded text-xs flex-shrink-0"
+              className="p-2 bg-blue-700 hover:bg-blue-800 rounded-lg touch-feedback flex-shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
               title="Pause AI"
             >
-              <Pause size={14} />
+              <Pause size={16} />
             </button>
           )}
           {aiStatus.isPaused && (
             <button
               onClick={resumeAI}
-              className="ml-2 p-1 bg-green-600 hover:bg-green-700 rounded text-xs flex-shrink-0"
+              className="p-2 bg-green-600 hover:bg-green-700 rounded-lg touch-feedback flex-shrink-0 min-h-[40px] min-w-[40px] flex items-center justify-center"
               title="Resume AI"
             >
-              <Play size={14} />
+              <Play size={16} />
             </button>
           )}
         </div>
       )}
 
-      {/* Messages Area - Premium Design */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+      {/* Messages Area - Mobile Optimized */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar">
         {messages.map((message, index) => (
           <div key={message.id} 
-               className={`flex gap-3 animate-fade-in ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+               className={`flex gap-2 sm:gap-4 animate-fade-in ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                style={{ 
                  animationDelay: `${Math.min(index * 50, 300)}ms`
                }}>
             {(message.type === 'ai' || message.type === 'system' || message.type === 'status') && (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 interactive-scale"
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-1 interactive-scale"
                    style={{
                      background: message.type === 'system' ? 'var(--accent-orange)' : 
                                 message.type === 'status' ? 'linear-gradient(135deg, #8b5cf6, #a855f7)' : 
                                 'var(--primary-gradient)',
                      boxShadow: 'var(--shadow-touch)'
                    }}>
-                <Bot size={16} />
+                <Bot size={16} className="sm:w-5 sm:h-5" />
               </div>
             )}
             
-            <div className={`max-w-[85%] sm:max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
+            <div className={`max-w-[88%] sm:max-w-[85%] ${message.type === 'user' ? 'order-first' : ''}`}>
               <div 
-                className="card-glass interactive-lift touch-feedback px-4 py-3 transition-all duration-300"
+                className="card-glass interactive-lift touch-feedback px-3 py-3 sm:px-4 sm:py-4 transition-all duration-300"
                 style={{
                   background: message.type === 'user' 
                     ? 'var(--primary-gradient)' 
@@ -1188,19 +1293,19 @@ Please try again in a moment.`,
                 onClick={() => message.type === 'status' && handleStatusClick(message)}
               >
                 {(message.type === 'ai' || message.type === 'system' || message.type === 'status') ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
+                  <div className="prose prose-invert prose-sm sm:prose-base max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
+                  <p className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{message.content}</p>
                 )}
               </div>
               
-              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <div className="flex items-center gap-2 sm:gap-3 mt-2 text-xs sm:text-sm text-gray-500">
                 <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                 {message.status && (
                   <span 
-                    className={`px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                    className={`px-2 py-1 rounded-lg text-xs cursor-pointer touch-feedback transition-opacity min-h-[32px] flex items-center ${
                       message.status === 'completed' ? 'bg-green-600/20 text-green-400' :
                       message.status === 'error' ? 'bg-red-600/20 text-red-400' :
                       'bg-yellow-600/20 text-yellow-400'
@@ -1213,17 +1318,17 @@ Please try again in a moment.`,
                 )}
                 <button 
                   onClick={() => copyMessage(message.content)}
-                  className="hover:text-gray-300"
+                  className="hover:text-gray-300 touch-feedback p-2 rounded-lg min-h-[32px] min-w-[32px] flex items-center justify-center"
                   title="Copy message"
                 >
-                  <Copy size={12} />
+                  <Copy size={14} />
                 </button>
               </div>
             </div>
             
             {message.type === 'user' && (
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                <User size={14} className="sm:w-4 sm:h-4" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                <User size={14} className="sm:w-5 sm:h-5" />
               </div>
             )}
           </div>
@@ -1256,25 +1361,27 @@ Please try again in a moment.`,
         </div>
       )}
 
-      {/* Input Area - Premium Design */}
+      {/* Input Area - Mobile Optimized */}
       <div className="pb-safe flex-shrink-0 card-glass" style={{ 
         borderTop: '1px solid var(--glass-border)',
         background: 'var(--glass-bg)',
         backdropFilter: 'var(--backdrop-blur)'
       }}>
-        <div className="p-4">
-          <div className="flex gap-3 items-end">
-            {/* Single Photo Upload Button */}
+        <div className="p-4 sm:p-6">
+          <div className="flex gap-3 sm:gap-4 items-end">
+            {/* Photo Upload Button - Better mobile sizing */}
             <button
               onClick={handleDirectPhotoUpload}
-              className="btn-premium btn-secondary btn-floating touch-feedback ripple-primary"
+              className="btn-premium btn-secondary touch-feedback ripple-primary flex-shrink-0"
               title="Add photos"
               style={{ 
-                minWidth: 'var(--touch-target-min)',
-                minHeight: 'var(--touch-target-min)'
+                minWidth: '48px',
+                minHeight: '48px',
+                borderRadius: '12px',
+                padding: '12px'
               }}
             >
-              <Image size={20} />
+              <Image size={22} />
             </button>
             
             {/* Hidden file input for direct photo access */}
@@ -1295,48 +1402,53 @@ Please try again in a moment.`,
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me to build something, explain your code, or add photos..."
-                className="input-premium w-full resize-none"
+                className="input-premium w-full resize-none text-sm sm:text-base"
                 rows={1}
                 style={{ 
-                  minHeight: 'var(--touch-target-min)', 
+                  minHeight: '48px', 
                   maxHeight: '120px',
-                  paddingRight: '60px'
+                  paddingRight: '60px',
+                  paddingTop: '14px',
+                  paddingBottom: '14px'
                 }}
               />
               
-              {/* Send Button positioned inside input */}
+              {/* Send Button positioned inside input - Mobile optimized */}
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isLoading}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-premium btn-primary btn-sm touch-feedback ripple"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-premium btn-primary touch-feedback ripple flex-shrink-0"
                 style={{
                   minWidth: '44px',
-                  minHeight: '36px',
+                  minHeight: '40px',
+                  borderRadius: '10px',
                   opacity: (!inputMessage.trim() || isLoading) ? 0.5 : 1
                 }}
               >
                 {isLoading ? (
-                  <Loader size={16} className="animate-spin-smooth" />
+                  <Loader size={18} className="animate-spin-smooth" />
                 ) : (
-                  <Send size={16} />
+                  <Send size={18} />
                 )}
               </button>
             </div>
           </div>
           
-          <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'var(--foreground-muted)' }}>
-            <span>💡 Ask me to create apps, explain code, or add photos for analysis!</span>
-            <div className="flex items-center gap-2">
-              <span>Model:</span>
+          {/* Mobile-optimized info section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-4 gap-3 text-xs sm:text-sm" style={{ color: 'var(--foreground-muted)' }}>
+            <span className="text-center sm:text-left">💡 Ask me to create apps, explain code, or add photos for analysis!</span>
+            <div className="flex items-center justify-center sm:justify-end gap-2">
+              <span className="hidden sm:inline">Model:</span>
               <select
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
-                className="btn-premium btn-ghost btn-sm text-xs"
+                className="btn-premium btn-ghost touch-feedback text-xs"
                 style={{ 
                   background: 'transparent',
                   border: '1px solid var(--glass-border)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '4px 8px'
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  minHeight: '36px'
                 }}
               >
                 {pollinationsModels.map(model => (
