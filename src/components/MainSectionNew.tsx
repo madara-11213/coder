@@ -98,6 +98,8 @@ export default function MainSection() {
   // Load branch-specific chat history
   useEffect(() => {
     if (currentBranch) {
+      isInitialLoad.current = true;
+      
       if (currentBranch.chatHistory.length > 0) {
         setMessages(currentBranch.chatHistory);
       } else {
@@ -133,12 +135,18 @@ I'm your intelligent coding companion with **real-time web search** capabilities
         };
         setMessages([welcomeMessage]);
       }
+      
+      // Allow saving messages after initial load completes
+      setTimeout(() => {
+        isInitialLoad.current = false;
+      }, 100);
     }
   }, [currentBranch]);
 
-  // Save messages to current branch whenever messages change - Fixed infinite loop
+  // Save messages to current branch whenever messages change
   const lastSavedMessages = useRef<string>('');
   const currentBranchId = currentBranch?.id;
+  const isInitialLoad = useRef<boolean>(true);
   
   // Memoize the save function to prevent recreating it on every render
   const saveMessages = useCallback((branchId: string, messagesToSave: Message[]) => {
@@ -151,10 +159,11 @@ I'm your intelligent coding companion with **real-time web search** capabilities
   }, [updateBranchChat]);
   
   useEffect(() => {
-    if (currentBranchId && messages.length > 0) {
+    // Don't save messages during initial load to prevent infinite loop
+    if (!isInitialLoad.current && currentBranchId && messages.length > 0) {
       saveMessages(currentBranchId, messages);
     }
-  }, [messages, currentBranchId, saveMessages]);
+  }, [messages, currentBranchId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
