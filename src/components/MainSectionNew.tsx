@@ -139,9 +139,16 @@ I'm your intelligent coding companion with **real-time web search** capabilities
   // Save messages to current branch whenever messages change
   useEffect(() => {
     if (currentBranch && messages.length > 0) {
-      updateBranchChat(currentBranch.id, messages);
+      // Only update if messages are different from what's stored
+      const storedMessages = currentBranch.chatHistory;
+      const messagesChanged = storedMessages.length !== messages.length || 
+        JSON.stringify(storedMessages) !== JSON.stringify(messages);
+      
+      if (messagesChanged) {
+        updateBranchChat(currentBranch.id, messages);
+      }
     }
-  }, [messages, currentBranch, updateBranchChat]);
+  }, [messages, currentBranch?.id]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
