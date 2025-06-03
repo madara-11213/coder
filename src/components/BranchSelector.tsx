@@ -44,7 +44,7 @@ export default function BranchSelector({ onBranchChange }: BranchSelectorProps) 
     setIsHydrated(true);
   }, []);
 
-  const currentBranchData = isHydrated ? getCurrentBranch() : { name: 'main', isMain: true };
+  const currentBranchData = isHydrated ? getCurrentBranch() : null;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -105,8 +105,8 @@ export default function BranchSelector({ onBranchChange }: BranchSelectorProps) 
     description?: string;
   }
 
-  const getBranchIcon = (branch: Branch) => {
-    if (branch.isMain) {
+  const getBranchIcon = (branch: Branch | null) => {
+    if (branch?.isMain) {
       return <GitBranch className="text-green-400" size={16} />;
     }
     return <GitBranch className="text-blue-400" size={16} />;

@@ -330,11 +330,11 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           {/* Tabs */}
           <div className="bg-gray-700 border-b border-gray-600 px-6 flex">
             {[
-              { id: 'overview', label: 'Overview', icon: CheckCircle },
-              { id: 'terminal', label: 'Terminal', icon: Terminal },
-              { id: 'code', label: 'Code', icon: Code },
-              { id: 'errors', label: 'Errors', icon: Bug },
-              { id: 'logs', label: 'Logs', icon: RefreshCw }
+              { id: 'overview' as const, label: 'Overview', icon: CheckCircle },
+              { id: 'terminal' as const, label: 'Terminal', icon: Terminal },
+              { id: 'code' as const, label: 'Code', icon: Code },
+              { id: 'errors' as const, label: 'Errors', icon: Bug },
+              { id: 'logs' as const, label: 'Logs', icon: RefreshCw }
             ].map(tab => {
               const Icon = tab.icon;
               return (

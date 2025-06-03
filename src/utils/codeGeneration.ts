@@ -54,7 +54,10 @@ export function parseAIResponse(content: string): CodeBlock[] {
       
       // Try to detect filename from content
       if (!filename) {
-        filename = detectFilenameFromContent(code, language);
+        const detectedName = detectFilenameFromContent(code, language);
+        if (detectedName) {
+          filename = detectedName;
+        }
       }
       
       // Fallback filename
@@ -227,13 +230,13 @@ interface ProjectNode {
 
 
 export function createProjectFromStructure(structure: ProjectStructure): ProjectNode {
-  const projectNode = {
+  const projectNode: ProjectNode = {
     name: structure.name,
     type: 'folder' as const,
     path: structure.name,
     expanded: true,
     isNew: true,
-    children: []
+    children: [] as ProjectNode[]
   };
   
   // Group files by directory
@@ -258,7 +261,9 @@ export function createProjectFromStructure(structure: ProjectStructure): Project
       }
       directories[dirPath].push(fileNode);
     } else {
-      projectNode.children.push(fileNode);
+      if (projectNode.children) {
+        projectNode.children.push(fileNode);
+      }
     }
   });
   
@@ -270,7 +275,7 @@ export function createProjectFromStructure(structure: ProjectStructure): Project
     
     dirParts.forEach((dirName, index) => {
       currentPath += '/' + dirName;
-      let existingDir = currentLevel.find(node => node.name === dirName && node.type === 'folder');
+      let existingDir = currentLevel?.find(node => node.name === dirName && node.type === 'folder');
       
       if (!existingDir) {
         existingDir = {
@@ -281,13 +286,15 @@ export function createProjectFromStructure(structure: ProjectStructure): Project
           isNew: true,
           children: []
         };
-        currentLevel.push(existingDir);
+        if (currentLevel) {
+          currentLevel.push(existingDir);
+        }
       }
       
       currentLevel = existingDir.children;
       
       // Add files to the deepest directory
-      if (index === dirParts.length - 1) {
+      if (index === dirParts.length - 1 && currentLevel) {
         currentLevel.push(...files);
       }
     });

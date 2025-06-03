@@ -163,7 +163,7 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
     for (const image of newImages) {
       processImage(image.id);
     }
-  }, [images.length, maxImages, processImage, uploadToCatbox]);
+  }, [images.length, maxImages]);
 
   const processImage = useCallback(async (imageId: string) => {
     setImages(prev => prev.map(img => 

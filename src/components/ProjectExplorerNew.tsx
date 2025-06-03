@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore, initializeSampleProjects } from '@/store/projectStore';
-import { useBranchStore } from '@/store/branchStore';
+import { useBranchStore, Branch } from '@/store/branchStore';
 import { 
   Folder, 
   File, 
@@ -40,13 +40,6 @@ interface FileNode {
   isNew?: boolean;
 }
 
-interface Branch {
-  id: string;
-  name: string;
-  fileTree: FileNode[];
-  lastModified: Date;
-  description?: string;
-}
 
 interface ProjectExplorerProps {
   onFileSelect: (filePath: string) => void;
@@ -104,7 +97,6 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
 
   // File upload and management functions
   const handleFileUpload = async (files: FileList) => {
-    setIsUploading(true);
     const newProgress: UploadProgress[] = [];
 
     for (const file of Array.from(files)) {
@@ -130,7 +122,6 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
 
     setTimeout(() => {
       setUploadProgress([]);
-      setIsUploading(false);
     }, 2000);
   };
 

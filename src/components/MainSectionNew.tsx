@@ -42,6 +42,15 @@ interface AIStatus {
   isPaused?: boolean;
 }
 
+interface FileTreeNode {
+  type: 'file' | 'folder';
+  path: string;
+  name?: string;
+  content?: string;
+  children?: FileTreeNode[];
+  lastModified?: Date;
+}
+
 export default function MainSection() {
   const { 
     getCurrentBranch, 
@@ -260,15 +269,6 @@ Please find the most current and relevant information, including:
     }
 
     let content = '';
-    
-    interface FileTreeNode {
-      type: 'file' | 'folder';
-      path: string;
-      name?: string;
-      content?: string;
-      children?: FileTreeNode[];
-      lastModified?: Date;
-    }
 
     const processNode = (node: FileTreeNode, depth: number = 0) => {
       const indent = '  '.repeat(depth);
