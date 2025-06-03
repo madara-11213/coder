@@ -125,7 +125,7 @@ export default function Settings() {
   }) => (
     <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
       <div className="flex items-center gap-3 mb-4">
-        <Icon size={18} className="text-blue-400 sm:w-5 sm:h-5" />
+        <Icon size={18} />
         <h3 className="text-base sm:text-lg font-semibold">{title}</h3>
       </div>
       <div className="space-y-3 sm:space-y-4">

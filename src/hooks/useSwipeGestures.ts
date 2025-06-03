@@ -19,7 +19,7 @@ interface TouchCoordinates {
 
 export function useSwipeGestures<T extends HTMLElement>(
   config: SwipeConfig
-): RefObject<T> {
+): RefObject<T | null> {
   const elementRef = useRef<T>(null);
   const touchStart = useRef<TouchCoordinates | null>(null);
   const touchEnd = useRef<TouchCoordinates | null>(null);
@@ -108,7 +108,7 @@ export function useSwipeGestures<T extends HTMLElement>(
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [threshold, preventDefaultTouchmoveEvent]);
+  }, [threshold, preventDefaultTouchmoveEvent, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }
@@ -119,7 +119,7 @@ export function useAdvancedGestures<T extends HTMLElement>(config: {
   onRotate?: (angle: number) => void;
   onLongPress?: (x: number, y: number) => void;
   longPressDelay?: number;
-}): RefObject<T> {
+}): RefObject<T | null> {
   const elementRef = useRef<T>(null);
   const touchesRef = useRef<Touch[]>([]);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -229,7 +229,7 @@ export function useAdvancedGestures<T extends HTMLElement>(config: {
         clearTimeout(longPressTimerRef.current);
       }
     };
-  }, [longPressDelay]);
+  }, [longPressDelay, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }
@@ -238,7 +238,7 @@ export function useAdvancedGestures<T extends HTMLElement>(config: {
 export function usePullToRefresh<T extends HTMLElement>(
   onRefresh: () => Promise<void> | void,
   threshold: number = 80
-): RefObject<T> {
+): RefObject<T | null> {
   const elementRef = useRef<T>(null);
   const startYRef = useRef<number | null>(null);
   const currentYRef = useRef<number | null>(null);
@@ -319,7 +319,7 @@ export function usePullToRefresh<T extends HTMLElement>(
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [threshold]);
+  }, [threshold, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }

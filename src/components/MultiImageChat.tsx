@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { X, Image as ImageIcon, Loader, Send, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 interface UploadedImage {
   id: string;
@@ -162,7 +163,7 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
     for (const image of newImages) {
       processImage(image.id);
     }
-  }, [images.length, maxImages, processImage]);
+  }, [images.length, maxImages]);
 
   const processImage = useCallback(async (imageId: string) => {
     setImages(prev => prev.map(img => 
@@ -317,10 +318,11 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
                 className="relative bg-gray-800 rounded-lg overflow-hidden"
               >
                 <div className="aspect-square relative">
-                  <img
+                  <Image
                     src={image.localUrl}
                     alt={image.name}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                   />
                   
                   {/* Loading Overlay */}
