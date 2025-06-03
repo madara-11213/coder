@@ -14,33 +14,65 @@ export interface ProjectStructure {
 
 export function parseAIResponse(content: string): CodeBlock[] {
   const codeBlocks: CodeBlock[] = [];
-  const codeBlockRegex = /```(\w+)?\s*(?:\/\/\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g;
   
-  let match;
+  // More flexible regex patterns to match different code block formats
+  const patterns = [
+    // Standard format: ```language\ncode```
+    /```(\w+)?\s*\n([\s\S]*?)```/g,
+    // With filename comment: ```language // filename\ncode```
+    /```(\w+)?\s*(?:\/\/\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g,
+    // With filename in different comment styles
+    /```(\w+)?\s*(?:#\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g,
+    // With filename after language
+    /```(\w+)\s+(.+\.[\w]+)\s*\n([\s\S]*?)```/g
+  ];
+  
   let fileCounter = 1;
+  let foundBlocks = new Set<string>(); // To avoid duplicates
   
-  while ((match = codeBlockRegex.exec(content)) !== null) {
-    const language = match[1] || 'text';
-    let filename = match[2];
-    const code = match[3].trim();
-    
-    // Try to detect filename from content
-    if (!filename) {
-      filename = detectFilenameFromContent(code, language);
+  // Try each pattern
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      const language = match[1] || 'text';
+      let filename = match[2];
+      let code = match[3] || match[2]; // Handle different capture groups
+      
+      // If we captured filename in wrong place, fix it
+      if (code && !filename && match[4]) {
+        filename = code;
+        code = match[4];
+      }
+      
+      if (!code) code = match[2] || '';
+      code = code.trim();
+      
+      // Skip if we already found this exact code block
+      const blockKey = `${language}-${code.substring(0, 100)}`;
+      if (foundBlocks.has(blockKey)) continue;
+      foundBlocks.add(blockKey);
+      
+      // Try to detect filename from content
+      if (!filename) {
+        filename = detectFilenameFromContent(code, language);
+      }
+      
+      // Fallback filename
+      if (!filename) {
+        filename = `file${fileCounter}.${getExtensionFromLanguage(language)}`;
+        fileCounter++;
+      }
+      
+      // Only add if we have actual content
+      if (code.length > 0) {
+        codeBlocks.push({
+          language,
+          filename,
+          content: code,
+          path: filename
+        });
+      }
     }
-    
-    // Fallback filename
-    if (!filename) {
-      filename = `file${fileCounter}.${getExtensionFromLanguage(language)}`;
-      fileCounter++;
-    }
-    
-    codeBlocks.push({
-      language,
-      filename,
-      content: code,
-      path: filename
-    });
   }
   
   return codeBlocks;

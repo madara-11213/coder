@@ -145,7 +145,7 @@ I'm your intelligent coding companion. I can:
 
   // Function to get all file contents from the current branch
   const getAllFileContents = (): string => {
-    if (!currentBranch || !currentBranch.fileTree.length) {
+    if (!currentBranch || !currentBranch.fileTree || !currentBranch.fileTree.length) {
       return 'No project files currently loaded.';
     }
 
@@ -166,7 +166,7 @@ I'm your intelligent coding companion. I can:
       }
     };
 
-    currentBranch.fileTree.forEach(node => processNode(node));
+    (currentBranch.fileTree || []).forEach(node => processNode(node));
     return content;
   };
 
@@ -508,14 +508,14 @@ Please try again in a moment.`,
     
     // Apply updates to files
     for (const update of updates) {
-      const updated = updateFileInBranch(currentBranch.fileTree, update.filename, update.content);
+      const updated = updateFileInBranch(currentBranch.fileTree || [], update.filename, update.content);
       if (updated) {
         filesUpdated++;
       }
     }
     
     if (filesUpdated > 0) {
-      updateBranchFiles(currentBranch.id, currentBranch.fileTree);
+      updateBranchFiles(currentBranch.id, currentBranch.fileTree || []);
     }
     
     return filesUpdated;

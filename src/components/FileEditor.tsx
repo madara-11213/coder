@@ -104,7 +104,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       return '';
     };
     
-    return findInNodes(currentBranch.fileTree, path);
+    return findInNodes(currentBranch.fileTree || [], path);
   };
 
   // Open file in new tab
@@ -162,7 +162,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       });
     };
     
-    const updatedFileTree = updateNode(currentBranch.fileTree);
+    const updatedFileTree = updateNode(currentBranch.fileTree || []);
     updateBranchFiles(currentBranch.id, updatedFileTree);
     
     // Mark tab as saved
