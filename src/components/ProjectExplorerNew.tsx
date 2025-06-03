@@ -55,7 +55,6 @@ interface UploadProgress {
 export default function ProjectExplorer({ onFileSelect, currentBranch }: ProjectExplorerProps) {
   const { 
     toggleFolder, 
-    createNewFile,
     createNewFolder 
   } = useProjectStore();
   
