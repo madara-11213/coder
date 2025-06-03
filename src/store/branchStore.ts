@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface FileNode {
+  name: string;
+  path: string;
+  type: 'file' | 'folder';
+  content?: string;
+  children?: FileNode[];
+  expanded?: boolean;
+  size?: number;
+  lastModified?: Date;
+  isNew?: boolean;
+}
+
+interface Message {
+  id: string;
+  type: 'user' | 'ai' | 'system' | 'status';
+  content: string;
+  timestamp: Date;
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -9,8 +28,8 @@ export interface Branch {
   lastModified: Date;
   description?: string;
   parentBranch?: string;
-  fileTree: any[];
-  chatHistory: any[];
+  fileTree: FileNode[];
+  chatHistory: Message[];
   shortTermMemory: string[];
   longTermMemory: string[];
 }
@@ -24,8 +43,8 @@ export interface BranchState {
   switchBranch: (branchId: string) => void;
   deleteBranch: (branchId: string) => void;
   mergeBranch: (sourceBranchId: string, targetBranchId: string) => void;
-  updateBranchFiles: (branchId: string, fileTree: any[]) => void;
-  updateBranchChat: (branchId: string, messages: any[]) => void;
+  updateBranchFiles: (branchId: string, fileTree: FileNode[]) => void;
+  updateBranchChat: (branchId: string, messages: Message[]) => void;
   addToSTM: (branchId: string, memory: string) => void;
   addToLTM: (branchId: string, memory: string) => void;
   getCurrentBranch: () => Branch | null;
@@ -114,7 +133,7 @@ export const useBranchStore = create<BranchState>()(
         }
       },
 
-      updateBranchFiles: (branchId: string, fileTree: any[]) => {
+      updateBranchFiles: (branchId: string, fileTree: FileNode[]) => {
         set(state => ({
           branches: state.branches.map(b => 
             b.id === branchId 
@@ -124,7 +143,7 @@ export const useBranchStore = create<BranchState>()(
         }));
       },
 
-      updateBranchChat: (branchId: string, messages: any[]) => {
+      updateBranchChat: (branchId: string, messages: Message[]) => {
         set(state => ({
           branches: state.branches.map(b => 
             b.id === branchId 

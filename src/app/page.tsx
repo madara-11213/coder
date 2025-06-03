@@ -14,7 +14,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<'main' | 'files' | 'settings'>('main');
   const [messageCount, setMessageCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { selectedFile, setSelectedFile, updateFileContent } = useProjectStore();
+  const { selectedFile, setSelectedFile } = useProjectStore();
   const { getCurrentBranch, updateBranchFiles } = useBranchStore();
 
   // Get current branch and message count
@@ -24,7 +24,7 @@ export default function Home() {
     if (currentBranch?.chatHistory) {
       setMessageCount(Math.max(0, currentBranch.chatHistory.length - 1)); // Subtract 1 for welcome message
     }
-  }, [currentBranch?.chatHistory?.length]);
+  }, [currentBranch?.chatHistory]);
 
   // View navigation order for swipe gestures
   const viewOrder: ('main' | 'files' | 'settings')[] = ['main', 'files', 'settings'];
@@ -81,7 +81,19 @@ export default function Home() {
     if (!currentBranch) return;
 
     // Update file content in the current branch
-    const updateNode = (nodes: any[]): any[] => {
+    interface FileNode {
+      name: string;
+      path: string;
+      type: 'file' | 'folder';
+      content?: string;
+      children?: FileNode[];
+      expanded?: boolean;
+      size?: number;
+      lastModified?: Date;
+      isNew?: boolean;
+    }
+    
+    const updateNode = (nodes: FileNode[]): FileNode[] => {
       return nodes.map(node => {
         if (node.path === filePath && node.type === 'file') {
           return { ...node, content, lastModified: new Date() };
@@ -173,7 +185,7 @@ export default function Home() {
         {/* View Transition Indicator */}
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
           <div className="flex gap-2 card-glass px-3 py-1.5" style={{ borderRadius: 'var(--radius-full)' }}>
-            {viewOrder.map((view, index) => (
+            {viewOrder.map((view) => (
               <div
                 key={view}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -204,7 +216,7 @@ export default function Home() {
                 { id: 'main' as const, label: 'Chat', icon: '💬', badge: messageCount > 0 ? messageCount : null },
                 { id: 'files' as const, label: 'Files', icon: '📁', badge: selectedFile ? '•' : null },
                 { id: 'settings' as const, label: 'Settings', icon: '⚙️', badge: null }
-              ].map((item, index) => (
+              ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setActiveView(item.id)}

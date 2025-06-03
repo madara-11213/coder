@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { X, Upload, Image as ImageIcon, Loader, Send, Trash2 } from 'lucide-react';
+import { X, Image as ImageIcon, Loader, Send, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface UploadedImage {
@@ -122,7 +122,7 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
         if (jsonResponse.choices?.[0]?.message?.content) {
           return jsonResponse.choices[0].message.content;
         }
-      } catch (parseError) {
+      } catch {
         console.warn('Could not parse AI response as JSON, using raw text');
       }
 
@@ -162,9 +162,9 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
     for (const image of newImages) {
       processImage(image.id);
     }
-  }, [images.length, maxImages]);
+  }, [images.length, maxImages, processImage]);
 
-  const processImage = async (imageId: string) => {
+  const processImage = useCallback(async (imageId: string) => {
     setImages(prev => prev.map(img => 
       img.id === imageId 
         ? { ...img, isUploading: true }
@@ -201,7 +201,7 @@ export default function MultiImageChat({ onImagesAnalyzed, maxImages = 10 }: Mul
           : img
       ));
     }
-  };
+  }, [images]);
 
   const removeImage = (imageId: string) => {
     const image = images.find(img => img.id === imageId);

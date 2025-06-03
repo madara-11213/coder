@@ -340,7 +340,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-400'

@@ -22,7 +22,6 @@ import {
   X,
   Check,
   Edit3,
-  Move,
   Copy,
   MoreHorizontal,
   Eye,
@@ -41,9 +40,17 @@ interface FileNode {
   isNew?: boolean;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+  fileTree: FileNode[];
+  lastModified: Date;
+  description?: string;
+}
+
 interface ProjectExplorerProps {
   onFileSelect: (filePath: string) => void;
-  currentBranch: any;
+  currentBranch: Branch | null;
 }
 
 interface UploadProgress {
@@ -59,10 +66,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
   
   const { updateBranchFiles } = useBranchStore();
   
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     show: boolean;
@@ -387,7 +391,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
 
   const createMockArchive = (filePaths: string[]): string => {
     const fileTree = getFileTree();
-    const archivedFiles: any[] = [];
+    const archivedFiles: FileNode[] = [];
 
     const findFileInTree = (nodes: FileNode[], targetPath: string): FileNode | null => {
       for (const node of nodes) {
@@ -425,7 +429,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       const extractedFiles: FileNode[] = [];
       const folderName = archiveName.replace(/\.(zip|rar|tar|gz)$/, '');
 
-      archive.files.forEach((file: any, index: number) => {
+      archive.files.forEach((file: FileNode) => {
         const extractedFile: FileNode = {
           name: file.name,
           type: file.type,

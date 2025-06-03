@@ -5,17 +5,12 @@ import {
   Monitor, 
   Palette, 
   Type, 
-  Keyboard, 
   Globe, 
   Shield, 
   Download,
   Upload,
   RotateCcw,
   Save,
-  Eye,
-  Moon,
-  Sun,
-  Volume2
 } from 'lucide-react';
 
 interface SettingsData {
@@ -111,7 +106,7 @@ export default function Settings() {
           const imported = JSON.parse(e.target?.result as string);
           setSettings({ ...defaultSettings, ...imported });
           setHasUnsavedChanges(true);
-        } catch (error) {
+        } catch {
           alert('Error importing settings file');
         }
       };

@@ -28,7 +28,7 @@ export function parseAIResponse(content: string): CodeBlock[] {
   ];
   
   let fileCounter = 1;
-  let foundBlocks = new Set<string>(); // To avoid duplicates
+  const foundBlocks = new Set<string>(); // To avoid duplicates
   
   // Try each pattern
   for (const pattern of patterns) {
@@ -216,15 +216,24 @@ function getExtensionFromLanguage(language: string): string {
   
   return extensionMap[language.toLowerCase()] || 'txt';
 }
+interface ProjectNode {
+  name: string;
+  type: 'file' | 'folder';
+  path: string;
+  expanded?: boolean;
+  isNew?: boolean;
+  children?: ProjectNode[];
+}
 
-export function createProjectFromStructure(structure: ProjectStructure): any {
+
+export function createProjectFromStructure(structure: ProjectStructure): ProjectNode {
   const projectNode = {
     name: structure.name,
     type: 'folder' as const,
     path: structure.name,
     expanded: true,
     isNew: true,
-    children: [] as any[]
+    children: []
   };
   
   // Group files by directory

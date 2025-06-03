@@ -2,9 +2,7 @@
 
 import { 
   FolderOpen, 
-  Code2, 
   MessageSquare, 
-  Terminal as TerminalIcon, 
   Settings as SettingsIcon 
 } from 'lucide-react';
 
