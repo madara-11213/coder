@@ -80,6 +80,7 @@ export default function MainSection() {
   const [showMultiImageChat, setShowMultiImageChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const currentBranch = getCurrentBranch();
 
@@ -958,6 +959,134 @@ Please try again in a moment.`,
     handleNormalChat(combinedAnalysis);
   };
 
+  // Direct photo upload handler
+  const handleDirectPhotoUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle selected files from direct upload
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Process images directly like MultiImageChat
+    const imageAnalyses: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file.type.startsWith('image/')) continue;
+
+      try {
+        // Upload and analyze each image
+        const imageUrl = await uploadToCatbox(file);
+        const analysis = await analyzeImageDirect(imageUrl);
+        imageAnalyses.push(`**Image ${i + 1}: ${file.name}**\n${analysis}`);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        imageAnalyses.push(`**Image ${i + 1}: ${file.name}**\nError analyzing image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    if (imageAnalyses.length > 0) {
+      const combinedAnalysis = `I've uploaded ${files.length} photo(s) for analysis:\n\n${imageAnalyses.join('\n\n---\n\n')}\n\nPlease help me understand what can be built or implemented based on these images.`;
+      
+      // Add as user message and process
+      const userMessage: Message = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'user',
+        content: combinedAnalysis,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, userMessage]);
+      handleNormalChat(combinedAnalysis);
+    }
+
+    // Reset file input
+    event.target.value = '';
+  };
+
+  // Helper function to upload to catbox.moe
+  const uploadToCatbox = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', file);
+
+    try {
+      const response = await fetch('https://catbox.moe/user/api.php', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const url = await response.text();
+      return url.trim();
+    } catch (error) {
+      console.error('Upload failed, using local URL:', error);
+      return URL.createObjectURL(file);
+    }
+  };
+
+  // Direct image analysis function
+  const analyzeImageDirect = async (imageUrl: string): Promise<string> => {
+    try {
+      const response = await fetch(process.env.NEXT_PUBLIC_POLLINATIONS_API_URL || 'https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Referer': process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || '',
+          'token': process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || ''
+        },
+        body: JSON.stringify({
+          model: 'openai-large',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert image analyzer. Provide detailed analysis of images including content, style, technical details, and potential implementation ideas.'
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Analyze this image in detail. Describe what you see, any UI elements, code patterns, design concepts, or technical implementations that could be built based on this image.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: imageUrl }
+                }
+              ]
+            }
+          ],
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        if (jsonResponse.choices?.[0]?.message?.content) {
+          return jsonResponse.choices[0].message.content;
+        }
+      } catch (parseError) {
+        console.warn('Could not parse AI response as JSON, using raw text');
+      }
+
+      return responseText;
+    } catch (error) {
+      console.error('Image analysis failed:', error);
+      return `Analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
       {/* Header */}
@@ -1039,40 +1168,51 @@ Please try again in a moment.`,
         </div>
       )}
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className={`flex gap-2 sm:gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+      {/* Messages Area - Premium Design */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+        {messages.map((message, index) => (
+          <div key={message.id} 
+               className={`flex gap-3 animate-fade-in ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+               style={{ 
+                 animationDelay: `${Math.min(index * 50, 300)}ms`
+               }}>
             {(message.type === 'ai' || message.type === 'system' || message.type === 'status') && (
-              <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 ${
-                message.type === 'system' ? 'bg-orange-600' : 
-                message.type === 'status' ? 'bg-purple-600' : 'bg-blue-600'
-              }`}>
-                <Bot size={14} className="sm:w-4 sm:h-4" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 interactive-scale"
+                   style={{
+                     background: message.type === 'system' ? 'var(--accent-orange)' : 
+                                message.type === 'status' ? 'linear-gradient(135deg, #8b5cf6, #a855f7)' : 
+                                'var(--primary-gradient)',
+                     boxShadow: 'var(--shadow-touch)'
+                   }}>
+                <Bot size={16} />
               </div>
             )}
             
             <div className={`max-w-[85%] sm:max-w-[80%] ${message.type === 'user' ? 'order-first' : ''}`}>
               <div 
-                className={`
-                  rounded-lg px-3 py-2 sm:px-4 sm:py-3 
-                  ${message.type === 'user' 
-                    ? 'bg-blue-600 text-white ml-auto' 
+                className="card-glass interactive-lift touch-feedback px-4 py-3 transition-all duration-300"
+                style={{
+                  background: message.type === 'user' 
+                    ? 'var(--primary-gradient)' 
                     : message.type === 'system'
-                    ? 'bg-orange-600/20 border border-orange-600/30'
+                    ? 'rgba(249, 115, 22, 0.1)'
                     : message.type === 'status'
-                    ? 'bg-purple-600/20 border border-purple-600/30 cursor-pointer hover:bg-purple-600/30 transition-colors'
-                    : 'bg-gray-800 border border-gray-700'
-                  }
-                `}
+                    ? 'rgba(139, 92, 246, 0.1)'
+                    : 'var(--glass-bg)',
+                  color: message.type === 'user' ? 'white' : 'var(--foreground)',
+                  borderRadius: 'var(--radius-lg)',
+                  backdropFilter: 'var(--backdrop-blur)',
+                  cursor: message.type === 'status' ? 'pointer' : 'default',
+                  marginLeft: message.type === 'user' ? 'auto' : '0'
+                }}
                 onClick={() => message.type === 'status' && handleStatusClick(message)}
               >
                 {(message.type === 'ai' || message.type === 'system' || message.type === 'status') ? (
-                  <div className="prose prose-invert prose-sm sm:prose-base max-w-none">
+                  <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown>{message.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm sm:text-base">{message.content}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</p>
                 )}
               </div>
               
@@ -1136,50 +1276,97 @@ Please try again in a moment.`,
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="border-t border-gray-700 p-3 sm:p-4 pb-safe flex-shrink-0">
-        <div className="flex gap-2 sm:gap-3">
-          <div className="flex flex-col gap-2 flex-shrink-0">
+      {/* Input Area - Premium Design */}
+      <div className="pb-safe flex-shrink-0 card-glass" style={{ 
+        borderTop: '1px solid var(--glass-border)',
+        background: 'var(--glass-bg)',
+        backdropFilter: 'var(--backdrop-blur)'
+      }}>
+        <div className="p-4">
+          <div className="flex gap-3 items-end">
+            {/* Single Photo Upload Button */}
             <button
-              onClick={() => setShowMultiImageChat(!showMultiImageChat)}
-              className={`p-2 rounded-lg transition-colors ${
-                showMultiImageChat 
-                  ? 'bg-blue-600 hover:bg-blue-700' 
-                  : 'bg-gray-700 hover:bg-gray-600'
-              }`}
-              title="Upload multiple images (up to 10)"
+              onClick={handleDirectPhotoUpload}
+              className="btn-premium btn-secondary btn-floating touch-feedback ripple-primary"
+              title="Add photos"
+              style={{ 
+                minWidth: 'var(--touch-target-min)',
+                minHeight: 'var(--touch-target-min)'
+              }}
             >
-              <Paperclip size={16} />
+              <Image size={20} />
             </button>
-            <button
-              onClick={() => setShowImageProcessor(true)}
-              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              title="Single image analysis"
-            >
-              <Image size={16} />
-            </button>
+            
+            {/* Hidden file input for direct photo access */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              multiple
+              capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            
+            <div className="flex-1 relative">
+              <textarea
+                ref={inputRef}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask me to build something, explain your code, or add photos..."
+                className="input-premium w-full resize-none"
+                rows={1}
+                style={{ 
+                  minHeight: 'var(--touch-target-min)', 
+                  maxHeight: '120px',
+                  paddingRight: '60px'
+                }}
+              />
+              
+              {/* Send Button positioned inside input */}
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isLoading}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-premium btn-primary btn-sm touch-feedback ripple"
+                style={{
+                  minWidth: '44px',
+                  minHeight: '36px',
+                  opacity: (!inputMessage.trim() || isLoading) ? 0.5 : 1
+                }}
+              >
+                {isLoading ? (
+                  <Loader size={16} className="animate-spin-smooth" />
+                ) : (
+                  <Send size={16} />
+                )}
+              </button>
+            </div>
           </div>
-          <textarea
-            ref={inputRef}
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me to build something, explain your code, or upload images..."
-            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 sm:px-4 sm:py-2 resize-none focus:outline-none focus:border-blue-500 text-sm sm:text-base touch-manipulation"
-            rows={1}
-            style={{ minHeight: '44px', maxHeight: '120px' }}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 sm:px-4 sm:py-2 transition-all duration-200 touch-manipulation min-h-[44px] active:scale-95 flex-shrink-0"
-          >
-            <Send size={16} />
-          </button>
-        </div>
-        
-        <div className="text-xs text-gray-500 mt-2 px-1">
-          💡 Ask me to "create a React app", "explain this code", or upload images for analysis!
+          
+          <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'var(--foreground-muted)' }}>
+            <span>💡 Ask me to create apps, explain code, or add photos for analysis!</span>
+            <div className="flex items-center gap-2">
+              <span>Model:</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="btn-premium btn-ghost btn-sm text-xs"
+                style={{ 
+                  background: 'transparent',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '4px 8px'
+                }}
+              >
+                {pollinationsModels.map(model => (
+                  <option key={model} value={model}>
+                    {model.charAt(0).toUpperCase() + model.slice(1).replace('-', ' ')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
