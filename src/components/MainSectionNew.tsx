@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   Send, 
   Bot, 
@@ -136,18 +136,25 @@ I'm your intelligent coding companion with **real-time web search** capabilities
     }
   }, [currentBranch]);
 
-  // Save messages to current branch whenever messages change
+  // Save messages to current branch whenever messages change - Fixed infinite loop
   const lastSavedMessages = useRef<string>('');
-  useEffect(() => {
-    if (currentBranch && messages.length > 0) {
-      const messagesString = JSON.stringify(messages);
-      // Only update if messages are actually different from what we last saved
-      if (messagesString !== lastSavedMessages.current) {
-        lastSavedMessages.current = messagesString;
-        updateBranchChat(currentBranch.id, messages);
-      }
+  const currentBranchId = currentBranch?.id;
+  
+  // Memoize the save function to prevent recreating it on every render
+  const saveMessages = useCallback((branchId: string, messagesToSave: Message[]) => {
+    const messagesString = JSON.stringify(messagesToSave);
+    // Only update if messages are actually different from what we last saved
+    if (messagesString !== lastSavedMessages.current) {
+      lastSavedMessages.current = messagesString;
+      updateBranchChat(branchId, messagesToSave);
     }
-  }, [messages, currentBranch?.id, updateBranchChat]);
+  }, [updateBranchChat]);
+  
+  useEffect(() => {
+    if (currentBranchId && messages.length > 0) {
+      saveMessages(currentBranchId, messages);
+    }
+  }, [messages, currentBranchId, saveMessages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1169,7 +1176,7 @@ Please try again in a moment.`,
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-gray-900 h-full">
       {/* Header - Mobile Optimized */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-4 flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1254,7 +1261,7 @@ Please try again in a moment.`,
       )}
 
       {/* Messages Area - Mobile Optimized */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 custom-scrollbar pb-4 sm:pb-6">
         {messages.map((message, index) => (
           <div key={message.id} 
                className={`flex gap-2 sm:gap-4 animate-fade-in ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
