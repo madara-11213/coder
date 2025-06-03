@@ -396,7 +396,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                           log.level === 'success' ? 'bg-green-400' : 'bg-blue-400'
                         }`} />
                         <span className="text-sm text-gray-300">
-                          {log.timestamp.toLocaleTimeString()}
+                          {new Date(log.timestamp).toLocaleTimeString()}
                         </span>
                         <span className="text-sm text-white flex-1">{log.message}</span>
                         <span className="text-xs text-gray-400">{log.source}</span>
@@ -545,7 +545,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs text-gray-400">
-                            {log.timestamp.toLocaleTimeString()}
+                            {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
                           <span className={`text-xs uppercase font-medium ${getLevelColor(log.level)}`}>
                             {log.level}
