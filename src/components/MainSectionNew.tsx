@@ -379,21 +379,38 @@ Please find the most current and relevant information, including:
           messages: [
             {
               role: 'system',
-              content: `You are a professional coding assistant. Generate complete, working code based on the user's request. Provide well-structured, commented code that follows best practices. Include all necessary files for a complete project.
+              content: `You are a professional coding assistant. Generate ONLY the essential files needed for the user's request. Focus on creating minimal, working code.
+
+IMPORTANT RULES:
+1. Only create files that are absolutely necessary for the requested functionality
+2. Use proper filenames (e.g., calculator.html, script.js, style.css)
+3. Each code block MUST start with the filename: \`\`\`filename.ext
+4. Keep code simple and focused on the core functionality
+5. No unnecessary helper files, config files, or complex folder structures unless specifically requested
+6. For simple projects like calculators, usually 1-3 files maximum
 
 ## Current Branch: ${currentBranch?.name || 'main'}
-## Short Term Memory: ${currentBranch?.shortTermMemory.join(', ') || 'None'}
-## Long Term Memory: ${currentBranch?.longTermMemory.slice(-3).join(', ') || 'None'}
-
-## Current Project Context:
-${getAllFileContents()}
-
 ${searchResults ? `## Web Search Results (Latest Information):
 ${searchResults}
 
-Use the above search results to ensure you're using the most current and best practices. Incorporate any relevant examples, solutions, or updated approaches found in the search results.` : ''}
+Use the above search results to ensure you're using current best practices.` : ''}
 
-Return your response with clear code blocks using \`\`\` syntax and specify file names.`
+Example format:
+\`\`\`calculator.html
+<!DOCTYPE html>
+<html>
+... your HTML code ...
+</html>
+\`\`\`
+
+\`\`\`script.js
+// Your JavaScript code
+function calculate() {
+  // calculation logic
+}
+\`\`\`
+
+Generate only essential files with proper names. NO package.json, README, or other config files unless specifically requested.`
             },
             {
               role: 'user',
@@ -427,31 +444,29 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       }
 
       setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60, isPaused: false });
-      addStatusMessage('⚡ **Generating project structure...**', 'generating', 60);
+      addStatusMessage('⚡ **Creating files directly in your project...**', 'generating', 60);
       
-      // Generate the actual project
-      const project = await generateProjectFromAI(aiResponse);
+      // Apply files directly to the current branch
+      const filesCreated = await applyGeneratedFiles(aiResponse);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       setAiStatus({ isActive: true, currentAction: 'Testing generated code...', progress: 80, isPaused: false });
-      addStatusMessage('🧪 **Running tests and validations...**', 'running', 80);
+      addStatusMessage('🧪 **Validating generated code...**', 'running', 80);
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Simulate basic validation
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      if (project) {
-        // Add the generated project to the current branch's fileTree
-        const newBranch = getCurrentBranch();
-        if (newBranch) {
-          // Convert project structure to FileNode format for the branch
-          const projectFileTree = convertProjectToFileTree(project);
-          updateBranchFiles(newBranch.id, projectFileTree);
-        }
-        
+      if (filesCreated > 0) {
         setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100, isPaused: false });
-        addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed', 100);
+        addStatusMessage(`✅ **Successfully created ${filesCreated} file(s)**\n\n📁 Files added directly to your project\n🌿 Check the Files section to see your new code!`, 'completed', 100);
+        
+        // Add to memory
+        if (currentBranch) {
+          addToSTM(currentBranch.id, `Generated ${filesCreated} files for: ${userInput.slice(0, 50)}...`);
+        }
       } else {
-        addStatusMessage('⚠️ **No code blocks found in AI response. Try being more specific about what you want to build.**', 'error', 0);
+        addStatusMessage('⚠️ **No code blocks found in AI response. Please be more specific about what you want to build.**', 'error', 0);
       }
 
     } catch (error) {
@@ -755,6 +770,94 @@ Please try again in a moment.`,
       }
     }
     return false;
+  };
+
+  const applyGeneratedFiles = async (aiResponse: string): Promise<number> => {
+    if (!currentBranch) return 0;
+    
+    let filesCreated = 0;
+    
+    // Extract code blocks with proper filename detection
+    const filenameCodeBlocks = /```([^\n`]+\.[a-zA-Z0-9]+)\s*\n([\s\S]*?)```/g;
+    const standardCodeBlocks = /```(\w+)?\s*\n([\s\S]*?)```/g;
+    
+    let match;
+    const newFiles: { name: string; content: string }[] = [];
+    
+    // First try to find blocks that start with filenames
+    while ((match = filenameCodeBlocks.exec(aiResponse)) !== null) {
+      const filename = match[1].trim();
+      const content = match[2].trim();
+      
+      if (filename && content && !filename.includes(' ') && filename.includes('.')) {
+        newFiles.push({ name: filename, content });
+      }
+    }
+    
+    // If no filename blocks found, try standard code blocks
+    if (newFiles.length === 0) {
+      let fileCounter = 1;
+      while ((match = standardCodeBlocks.exec(aiResponse)) !== null) {
+        const language = match[1] || 'txt';
+        const content = match[2].trim();
+        
+        if (content) {
+          const extension = getExtensionFromLanguage(language);
+          const filename = `file${fileCounter}.${extension}`;
+          newFiles.push({ name: filename, content });
+          fileCounter++;
+        }
+      }
+    }
+    
+    // Add files to the current branch
+    const currentFileTree = [...(currentBranch.fileTree || [])];
+    
+    for (const newFile of newFiles) {
+      const fileNode = {
+        name: newFile.name,
+        type: 'file' as const,
+        path: newFile.name,
+        content: newFile.content,
+        isNew: true,
+        lastModified: new Date(),
+        size: newFile.content.length
+      };
+      
+      // Check if file already exists and update it, otherwise add new
+      const existingIndex = currentFileTree.findIndex(node => 
+        node.type === 'file' && node.name === newFile.name
+      );
+      
+      if (existingIndex >= 0) {
+        currentFileTree[existingIndex] = fileNode;
+      } else {
+        currentFileTree.push(fileNode);
+      }
+      
+      filesCreated++;
+    }
+    
+    // Update the branch with new files
+    updateBranchFiles(currentBranch.id, currentFileTree);
+    
+    return filesCreated;
+  };
+
+  const getExtensionFromLanguage = (language: string): string => {
+    const extensionMap: { [key: string]: string } = {
+      'javascript': 'js',
+      'js': 'js',
+      'html': 'html',
+      'css': 'css',
+      'python': 'py',
+      'py': 'py',
+      'json': 'json',
+      'typescript': 'ts',
+      'ts': 'ts'
+    };
+    
+    return extensionMap[language.toLowerCase()] || 'txt';
   };
 
   const convertProjectToFileTree = (project: any): any[] => {

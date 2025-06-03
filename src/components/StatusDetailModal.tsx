@@ -273,8 +273,10 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className={`bg-gray-800 border border-gray-600 rounded-lg shadow-2xl ${
-            isFullscreen ? 'w-full h-full' : 'w-4/5 h-4/5 max-w-6xl'
+          className={`bg-gray-800 border border-gray-600 rounded-lg shadow-2xl flex flex-col ${
+            isFullscreen 
+              ? 'w-full h-full rounded-none' 
+              : 'w-full max-w-6xl h-full max-h-[90vh] sm:w-11/12 md:w-4/5 lg:w-3/4 xl:w-2/3 mx-2 sm:mx-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
