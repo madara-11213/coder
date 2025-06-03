@@ -266,61 +266,62 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          className={`bg-gray-800 border border-gray-600 rounded-lg shadow-2xl flex flex-col ${
+          initial={{ scale: 0.95, opacity: 0, y: 100 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 100 }}
+          className={`bg-gray-900 border border-gray-700 shadow-2xl flex flex-col ${
             isFullscreen 
               ? 'w-full h-full rounded-none' 
-              : 'w-full max-w-6xl h-full max-h-[90vh] sm:w-11/12 md:w-4/5 lg:w-3/4 xl:w-2/3 mx-2 sm:mx-4'
+              : 'w-full h-[90vh] sm:h-auto sm:max-h-[85vh] sm:max-w-4xl sm:rounded-xl rounded-t-2xl sm:mx-4'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-gray-700 border-b border-gray-600 px-6 py-4 flex items-center justify-between rounded-t-lg">
-            <div className="flex items-center gap-3">
+          <div className="bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               {getStatusIcon()}
-              <div>
-                <h2 className="text-lg font-semibold text-white">{status.title}</h2>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base sm:text-lg font-semibold text-white truncate">{status.title}</h2>
                 {status.description && (
-                  <p className="text-sm text-gray-300">{status.description}</p>
+                  <p className="text-xs sm:text-sm text-gray-300 truncate">{status.description}</p>
+                )}
+                {status.progress !== undefined && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex-1 max-w-24 sm:max-w-32 bg-gray-700 rounded-full h-1.5 sm:h-2">
+                      <div 
+                        className="bg-blue-500 h-1.5 sm:h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${status.progress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs sm:text-sm text-gray-300 whitespace-nowrap">{status.progress}%</span>
+                  </div>
                 )}
               </div>
-              {status.progress !== undefined && (
-                <div className="ml-6 flex items-center gap-2">
-                  <div className="w-32 bg-gray-600 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${status.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-sm text-gray-300">{status.progress}%</span>
-                </div>
-              )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <button
                 onClick={downloadLogs}
-                className="p-2 hover:bg-gray-600 rounded"
+                className="p-2 hover:bg-gray-700 rounded-lg touch-feedback hidden sm:block"
                 title="Download Logs"
               >
                 <Download size={16} className="text-gray-300" />
               </button>
               <button
                 onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-2 hover:bg-gray-600 rounded"
+                className="p-2 hover:bg-gray-700 rounded-lg touch-feedback hidden sm:block"
                 title="Toggle Fullscreen"
               >
                 {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-600 rounded text-red-400"
+                className="p-2 hover:bg-gray-700 rounded-lg text-red-400 touch-feedback"
+                title="Close"
               >
                 <X size={16} />
               </button>
@@ -328,7 +329,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           </div>
 
           {/* Tabs */}
-          <div className="bg-gray-700 border-b border-gray-600 px-6 flex">
+          <div className="bg-gray-800 border-b border-gray-700 px-2 sm:px-6 flex overflow-x-auto custom-scrollbar">
             {[
               { id: 'overview' as const, label: 'Overview', icon: CheckCircle },
               { id: 'terminal' as const, label: 'Terminal', icon: Terminal },
@@ -341,16 +342,16 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-3 border-b-2 transition-colors whitespace-nowrap touch-feedback ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-400'
                       : 'border-transparent text-gray-400 hover:text-gray-200'
                   }`}
                 >
-                  <Icon size={16} />
-                  {tab.label}
+                  <Icon size={14} className="sm:w-4 sm:h-4" />
+                  <span className="text-sm sm:text-base">{tab.label}</span>
                   {tab.id === 'errors' && errors.length > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
                       {errors.length}
                     </span>
                   )}

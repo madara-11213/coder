@@ -151,7 +151,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden" style={{ background: 'var(--background)' }}>
+    <div className="flex h-screen w-screen" style={{ background: 'var(--background)' }}>
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden sm:block">
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
@@ -165,7 +165,7 @@ export default function Home() {
             refreshRef.current = el;
           }
         }}
-        className="flex-1 flex flex-col overflow-hidden relative swipeable momentum-scroll custom-scrollbar"
+        className="flex-1 flex flex-col relative swipeable h-full"
       >
         {/* Refresh Indicator */}
         {isRefreshing && (
@@ -201,10 +201,13 @@ export default function Home() {
           </div>
         </div>
         
-        {renderMainContent()}
+        {/* Main Content Container */}
+        <div className="flex-1 overflow-hidden">
+          {renderMainContent()}
+        </div>
         
         {/* Mobile Bottom Navigation - Premium Glass Design */}
-        <div className="sm:hidden pb-safe" 
+        <div className="sm:hidden pb-safe flex-shrink-0" 
              style={{ 
                background: 'var(--glass-bg)',
                backdropFilter: 'var(--backdrop-blur-heavy)',
