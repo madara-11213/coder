@@ -210,8 +210,8 @@ export default function Home() {
                backdropFilter: 'var(--backdrop-blur-heavy)',
                borderTop: '1px solid var(--glass-border)'
              }}>
-          <div className="flex justify-center p-3">
-            <div className="flex card-glass-heavy rounded-full p-1.5">
+          <div className="flex justify-center p-4">
+            <div className="flex card-glass-heavy rounded-full p-2">
               {[
                 { id: 'main' as const, label: 'Chat', icon: '💬', badge: messageCount > 0 ? messageCount : null },
                 { id: 'files' as const, label: 'Files', icon: '📁', badge: selectedFile ? '•' : null },
@@ -222,7 +222,7 @@ export default function Home() {
                   onClick={() => setActiveView(item.id)}
                   className={`
                     relative flex flex-col items-center justify-center 
-                    min-w-[68px] min-h-[52px] px-4 py-2.5 mx-1
+                    min-w-[72px] min-h-[56px] px-4 py-3 mx-1
                     transition-all duration-300 
                     touch-feedback ripple-primary interactive-lift
                     ${activeView === item.id 
@@ -238,16 +238,16 @@ export default function Home() {
                     boxShadow: activeView === item.id ? 'var(--shadow-floating), var(--shadow-glow)' : 'none'
                   }}
                 >
-                  <div className="text-lg leading-none mb-1">{item.icon}</div>
+                  <div className="text-xl leading-none mb-1">{item.icon}</div>
                   <div className="text-xs font-semibold">{item.label}</div>
                   
                   {/* Badge/Indicator */}
                   {item.badge && (
-                    <div className="absolute -top-1 -right-1 min-w-[18px] h-5 flex items-center justify-center rounded-full px-1.5 text-xs font-bold animate-pulse-premium"
+                    <div className="absolute -top-1 -right-1 min-w-[20px] h-6 flex items-center justify-center rounded-full px-2 text-xs font-bold animate-pulse-premium"
                          style={{ 
-                           background: 'var(--danger)', 
+                           background: '#ef4444', 
                            color: 'white',
-                           boxShadow: 'var(--shadow-touch)'
+                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)'
                          }}>
                       {item.badge}
                     </div>
@@ -255,8 +255,8 @@ export default function Home() {
                   
                   {/* Active Indicator */}
                   {activeView === item.id && (
-                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse-premium"
-                         style={{ background: 'var(--primary-light)' }}></div>
+                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-2 h-2 rounded-full animate-pulse-premium"
+                         style={{ background: 'var(--primary)' }}></div>
                   )}
                 </button>
               ))}

@@ -308,19 +308,79 @@ body {
 
 /* Mobile-First Safe Areas */
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
 }
 
 .pt-safe {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), 8px);
 }
 
 .pl-safe {
-  padding-left: env(safe-area-inset-left);
+  padding-left: max(env(safe-area-inset-left), 8px);
 }
 
 .pr-safe {
-  padding-right: env(safe-area-inset-right);
+  padding-right: max(env(safe-area-inset-right), 8px);
+}
+
+/* Enhanced Mobile Scrolling */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.3) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 2px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Ensure text is readable on small screens */
+  .prose-sm {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  
+  .prose-sm h1, .prose-sm h2, .prose-sm h3 {
+    font-size: 1.1rem;
+    line-height: 1.4;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose-sm p {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose-sm code {
+    font-size: 0.8rem;
+    padding: 2px 4px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+  }
+  
+  .prose-sm pre {
+    font-size: 0.75rem;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    overflow-x: auto;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+  }
 }
 
 /* Mobile-First Gestures */
