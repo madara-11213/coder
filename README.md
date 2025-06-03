@@ -95,6 +95,26 @@
    bun dev
    ```
 
+### 🧹 **Troubleshooting Cache Issues**
+
+If you encounter CSS parsing errors or build issues, try these cleanup commands:
+
+```bash
+# Clean all cache files and reinstall
+npm run fresh-install
+
+# Clean and start development server
+npm run fresh-dev
+
+# Manual cleanup (if needed)
+npm run clean
+```
+
+**Common issues and solutions:**
+- **CSS @import errors**: Run `npm run fresh-install` to clear build cache
+- **Module not found**: Delete `node_modules` and reinstall dependencies
+- **Build failures**: Clear `.next` folder and restart dev server
+
 5. **Open your browser**
    
    Navigate to [http://localhost:3000](http://localhost:3000) to see the magic! ✨
