@@ -253,7 +253,7 @@ Please find the most current and relevant information, including:
 
   // Function to get all file contents from the current branch
   const getAllFileContents = (): string => {
-    if (!currentBranch || !currentBranch.fileTree.length) {
+    if (!currentBranch || !currentBranch.fileTree || !currentBranch.fileTree.length) {
       return 'No project files currently loaded.';
     }
 
@@ -274,7 +274,7 @@ Please find the most current and relevant information, including:
       }
     };
 
-    currentBranch.fileTree.forEach(node => processNode(node));
+    (currentBranch.fileTree || []).forEach(node => processNode(node));
     return content;
   };
 
@@ -440,6 +440,14 @@ Return your response with clear code blocks using \`\`\` syntax and specify file
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (project) {
+        // Add the generated project to the current branch's fileTree
+        const newBranch = getCurrentBranch();
+        if (newBranch) {
+          // Convert project structure to FileNode format for the branch
+          const projectFileTree = convertProjectToFileTree(project);
+          updateBranchFiles(newBranch.id, projectFileTree);
+        }
+        
         setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100, isPaused: false });
         addStatusMessage(`✅ **Successfully created project: ${project.name}**\n\n📁 Generated ${project.files.length} files\n🌿 Project available in Files section`, 'completed', 100);
       } else {
@@ -720,14 +728,14 @@ Please try again in a moment.`,
     }
     
     for (const update of updates) {
-      const updated = updateFileInBranch(currentBranch.fileTree, update.filename, update.content);
+      const updated = updateFileInBranch(currentBranch.fileTree || [], update.filename, update.content);
       if (updated) {
         filesUpdated++;
       }
     }
     
     if (filesUpdated > 0) {
-      updateBranchFiles(currentBranch.id, currentBranch.fileTree);
+      updateBranchFiles(currentBranch.id, currentBranch.fileTree || []);
     }
     
     return filesUpdated;
@@ -747,6 +755,41 @@ Please try again in a moment.`,
       }
     }
     return false;
+  };
+
+  const convertProjectToFileTree = (project: any): any[] => {
+    if (!project || !project.files) return [];
+    
+    // Create a project folder containing all the files
+    const projectNode = {
+      name: project.name,
+      type: 'folder',
+      path: project.name,
+      expanded: true,
+      isNew: true,
+      children: [] as any[]
+    };
+    
+    // Convert each file to FileNode format
+    project.files.forEach((file: any) => {
+      const pathParts = file.path.split('/');
+      const fileName = pathParts.pop() || file.filename;
+      
+      const fileNode = {
+        name: fileName,
+        type: 'file',
+        path: `${project.name}/${file.path}`,
+        content: file.content,
+        isNew: true,
+        lastModified: new Date()
+      };
+      
+      // For now, put all files directly in the project folder
+      // TODO: Handle nested folder structures properly
+      projectNode.children.push(fileNode);
+    });
+    
+    return [projectNode];
   };
 
   const copyMessage = (content: string) => {

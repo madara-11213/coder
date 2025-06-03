@@ -424,7 +424,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
           </div>
         ) : (
           <div className="py-2">
-            {currentBranch.fileTree.map(node => renderFileNode(node))}
+            {(currentBranch.fileTree || []).map(node => renderFileNode(node))}
           </div>
         )}
       </div>
