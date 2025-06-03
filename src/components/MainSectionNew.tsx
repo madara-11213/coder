@@ -27,6 +27,7 @@ import { useBranchStore } from '@/store/branchStore';
 import BranchSelector from './BranchSelector';
 import StatusDetailModal from './StatusDetailModal';
 import ImageProcessor from './ImageProcessor';
+import MultiImageChat from './MultiImageChat';
 
 interface Message {
   id: string;
@@ -76,6 +77,7 @@ export default function MainSection() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusDetail, setSelectedStatusDetail] = useState<any>(null);
   const [showImageProcessor, setShowImageProcessor] = useState(false);
+  const [showMultiImageChat, setShowMultiImageChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
@@ -936,6 +938,26 @@ Please try again in a moment.`,
     handleNormalChat(`I've uploaded an image. Here's the analysis: ${analysis}. Please help me understand what can be built or implemented based on this image.`);
   };
 
+  const handleMultiImagesAnalyzed = (images: any[], combinedAnalysis: string) => {
+    const imageUrls = images
+      .filter(img => img.hostedUrl)
+      .map((img, index) => `![Image ${index + 1}](${img.hostedUrl})`)
+      .join('\n\n');
+
+    const imageMessage: Message = {
+      id: `${Date.now()}-images-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'user',
+      content: `📸 **Multi-Image Analysis Request**\n\n${imageUrls}\n\n${combinedAnalysis}`,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, imageMessage]);
+    setShowMultiImageChat(false);
+    
+    // Automatically trigger AI response for multi-image analysis
+    handleNormalChat(combinedAnalysis);
+  };
+
   return (
     <div className="flex-1 flex flex-col bg-gray-900 overflow-hidden">
       {/* Header */}
@@ -1104,14 +1126,35 @@ Please try again in a moment.`,
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Multi-Image Upload Area */}
+      {showMultiImageChat && (
+        <div className="border-t border-gray-700 p-3 sm:p-4 bg-gray-800/50">
+          <MultiImageChat 
+            onImagesAnalyzed={handleMultiImagesAnalyzed}
+            maxImages={10}
+          />
+        </div>
+      )}
+
       {/* Input Area */}
       <div className="border-t border-gray-700 p-3 sm:p-4 pb-safe flex-shrink-0">
         <div className="flex gap-2 sm:gap-3">
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
+              onClick={() => setShowMultiImageChat(!showMultiImageChat)}
+              className={`p-2 rounded-lg transition-colors ${
+                showMultiImageChat 
+                  ? 'bg-blue-600 hover:bg-blue-700' 
+                  : 'bg-gray-700 hover:bg-gray-600'
+              }`}
+              title="Upload multiple images (up to 10)"
+            >
+              <Paperclip size={16} />
+            </button>
+            <button
               onClick={() => setShowImageProcessor(true)}
               className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
-              title="Upload and analyze image"
+              title="Single image analysis"
             >
               <Image size={16} />
             </button>
@@ -1121,22 +1164,22 @@ Please try again in a moment.`,
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me to build something, explain your code, or upload an image..."
-            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 sm:px-4 sm:py-2 resize-none focus:outline-none focus:border-blue-500 text-sm sm:text-base"
+            placeholder="Ask me to build something, explain your code, or upload images..."
+            className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 sm:px-4 sm:py-2 resize-none focus:outline-none focus:border-blue-500 text-sm sm:text-base touch-manipulation"
             rows={1}
-            style={{ minHeight: '40px', maxHeight: '120px' }}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputMessage.trim() || isLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 sm:px-4 sm:py-2 transition-colors flex-shrink-0"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg px-3 py-2 sm:px-4 sm:py-2 transition-all duration-200 touch-manipulation min-h-[44px] active:scale-95 flex-shrink-0"
           >
             <Send size={16} />
           </button>
         </div>
         
         <div className="text-xs text-gray-500 mt-2 px-1">
-          💡 Ask me to "create a React app", "explain this code", or upload an image for analysis!
+          💡 Ask me to "create a React app", "explain this code", or upload images for analysis!
         </div>
       </div>
 
