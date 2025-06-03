@@ -318,6 +318,130 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
     closeContextMenu();
   };
 
+  const handleArchive = () => {
+    const selectedFiles = Array.from(selectedNodes);
+    if (selectedFiles.length === 0) return;
+
+    const archiveName = prompt('Enter archive name (without extension):');
+    if (!archiveName) return;
+
+    // Create a mock zip file with selected files
+    const archiveContent = createMockArchive(selectedFiles);
+    const archiveFile: FileNode = {
+      name: `${archiveName}.zip`,
+      type: 'file',
+      path: `${archiveName}.zip`,
+      content: archiveContent,
+      isNew: true,
+      lastModified: new Date(),
+      size: archiveContent.length
+    };
+
+    if (currentBranch && currentBranch.fileTree) {
+      updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, archiveFile]);
+    }
+
+    setSelectedNodes(new Set());
+    closeContextMenu();
+  };
+
+  const handleUnarchive = (node: FileNode) => {
+    if (!node.content) return;
+
+    const extractedFiles = extractMockArchive(node.content, node.name);
+    if (currentBranch && currentBranch.fileTree) {
+      updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, ...extractedFiles]);
+    }
+
+    closeContextMenu();
+  };
+
+  const createMockArchive = (filePaths: string[]): string => {
+    const fileTree = getFileTree();
+    const archivedFiles: any[] = [];
+
+    const findFileInTree = (nodes: FileNode[], targetPath: string): FileNode | null => {
+      for (const node of nodes) {
+        if (node.path === targetPath) return node;
+        if (node.children) {
+          const found = findFileInTree(node.children, targetPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    filePaths.forEach(filePath => {
+      const file = findFileInTree(fileTree, filePath);
+      if (file) {
+        archivedFiles.push({
+          name: file.name,
+          path: file.path,
+          content: file.content || '',
+          type: file.type
+        });
+      }
+    });
+
+    return JSON.stringify({
+      type: 'archive',
+      created: new Date().toISOString(),
+      files: archivedFiles
+    });
+  };
+
+  const extractMockArchive = (archiveContent: string, archiveName: string): FileNode[] => {
+    try {
+      const archive = JSON.parse(archiveContent);
+      const extractedFiles: FileNode[] = [];
+      const folderName = archiveName.replace(/\.(zip|rar|tar|gz)$/, '');
+
+      archive.files.forEach((file: any, index: number) => {
+        const extractedFile: FileNode = {
+          name: file.name,
+          type: file.type,
+          path: `${folderName}/${file.name}`,
+          content: file.content,
+          isNew: true,
+          lastModified: new Date()
+        };
+        extractedFiles.push(extractedFile);
+      });
+
+      // Create folder structure if multiple files
+      if (extractedFiles.length > 1) {
+        const folder: FileNode = {
+          name: folderName,
+          type: 'folder',
+          path: folderName,
+          expanded: true,
+          isNew: true,
+          children: extractedFiles
+        };
+        return [folder];
+      }
+
+      return extractedFiles;
+    } catch (error) {
+      console.error('Failed to extract archive:', error);
+      return [];
+    }
+  };
+
+  const toggleNodeSelection = (nodePath: string) => {
+    const newSelection = new Set(selectedNodes);
+    if (newSelection.has(nodePath)) {
+      newSelection.delete(nodePath);
+    } else {
+      newSelection.add(nodePath);
+    }
+    setSelectedNodes(newSelection);
+  };
+
+  const isArchiveFile = (filename: string): boolean => {
+    return /\.(zip|rar|tar|gz|7z)$/i.test(filename);
+  };
+
   const createNewFile = () => {
     if (!newFileName.trim()) return;
     
@@ -457,9 +581,12 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
             ${selectedNodes.has(node.path) ? 'bg-blue-600/30' : ''}
           `}
           style={{ paddingLeft: `${8 + indent}px` }}
-          onClick={() => {
+          onClick={(e) => {
             if (!isEditing) {
-              if (node.type === 'folder') {
+              if (e.ctrlKey || e.metaKey) {
+                // Multi-select with Ctrl/Cmd
+                toggleNodeSelection(node.path);
+              } else if (node.type === 'folder') {
                 toggleFolder(node.path);
               } else {
                 handleFileSelect(node.path);
@@ -640,6 +767,21 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
         )}
       </div>
 
+      {/* Selection Info */}
+      {selectedNodes.size > 0 && (
+        <div className="px-4 py-2 bg-blue-600/20 border-t border-blue-600/50 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-blue-400">{selectedNodes.size} file(s) selected</span>
+            <button
+              onClick={() => setSelectedNodes(new Set())}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer Actions */}
       <div className="p-2 border-t border-gray-700 flex gap-2">
         <button 
@@ -658,6 +800,16 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
           <FolderPlus size={14} />
         </button>
         
+        {selectedNodes.size > 0 && (
+          <button 
+            onClick={handleArchive}
+            className="flex items-center gap-2 px-2 py-1 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-600/20 rounded"
+            title="Archive Selected Files"
+          >
+            <Archive size={14} />
+          </button>
+        )}
+        
         <button 
           className="flex items-center gap-2 px-2 py-1 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded"
           title="Download Project"
@@ -666,8 +818,9 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
         </button>
         
         <button 
+          onClick={() => setSelectedNodes(new Set())}
           className="flex items-center gap-2 px-2 py-1 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded"
-          title="Refresh"
+          title="Clear Selection"
         >
           <Eye size={14} />
         </button>
@@ -717,7 +870,27 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
             </button>
           )}
           
+          {contextMenu.node.type === 'file' && isArchiveFile(contextMenu.node.name) && (
+            <button
+              onClick={() => handleUnarchive(contextMenu.node!)}
+              className="w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center gap-3 text-sm"
+            >
+              <Archive size={16} />
+              Extract Archive
+            </button>
+          )}
+          
           <hr className="border-gray-600 my-2" />
+          
+          {selectedNodes.size > 0 && (
+            <button
+              onClick={handleArchive}
+              className="w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center gap-3 text-sm"
+            >
+              <Archive size={16} />
+              Archive Selected ({selectedNodes.size})
+            </button>
+          )}
           
           <button
             onClick={() => handleDelete(contextMenu.node!)}
