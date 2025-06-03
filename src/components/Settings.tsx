@@ -111,7 +111,7 @@ export default function Settings() {
           const imported = JSON.parse(e.target?.result as string);
           setSettings({ ...defaultSettings, ...imported });
           setHasUnsavedChanges(true);
-        } catch (error) {
+        } catch {
           alert('Error importing settings file');
         }
       };
