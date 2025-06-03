@@ -139,7 +139,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-gray-900 text-white overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden" style={{ background: 'var(--background)' }}>
       {/* Desktop Sidebar - Hidden on mobile */}
       <div className="hidden sm:block">
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
@@ -153,29 +153,37 @@ export default function Home() {
             refreshRef.current = el;
           }
         }}
-        className="flex-1 flex flex-col overflow-hidden relative swipeable momentum-scroll"
+        className="flex-1 flex flex-col overflow-hidden relative swipeable momentum-scroll custom-scrollbar"
       >
         {/* Refresh Indicator */}
         {isRefreshing && (
-          <div className="absolute top-0 left-0 right-0 z-50 bg-blue-600/90 backdrop-blur-sm text-white text-center py-2 animate-slide-down">
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-mobile"></div>
-              <span className="text-sm font-medium">Refreshing...</span>
+          <div className="absolute top-0 left-0 right-0 z-50 card-glass text-center py-3 animate-slide-down" 
+               style={{ 
+                 background: 'var(--primary-gradient)', 
+                 borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
+                 backdropFilter: 'var(--backdrop-blur-heavy)'
+               }}>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin-smooth"></div>
+              <span className="text-sm font-semibold text-white">Refreshing...</span>
             </div>
           </div>
         )}
         
         {/* View Transition Indicator */}
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
-          <div className="flex gap-1">
+        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
+          <div className="flex gap-2 card-glass px-3 py-1.5" style={{ borderRadius: 'var(--radius-full)' }}>
             {viewOrder.map((view, index) => (
               <div
                 key={view}
-                className={`w-2 h-1 rounded-full transition-all duration-200 ${
+                className={`h-1.5 rounded-full transition-all duration-300 ${
                   view === activeView 
-                    ? 'bg-blue-400 w-4' 
-                    : 'bg-gray-600'
+                    ? 'w-6 animate-glow-pulse' 
+                    : 'w-1.5 opacity-60'
                 }`}
+                style={{
+                  background: view === activeView ? 'var(--primary-gradient)' : 'var(--foreground-muted)'
+                }}
               />
             ))}
           </div>
@@ -183,10 +191,15 @@ export default function Home() {
         
         {renderMainContent()}
         
-        {/* Mobile Bottom Navigation - Advanced Touch-Optimized */}
-        <div className="sm:hidden border-t border-gray-700 bg-gray-800/95 backdrop-blur-lg pb-safe">
-          <div className="flex justify-center">
-            <div className="flex bg-gray-900/50 rounded-full mx-4 my-2 p-1 backdrop-blur-md border border-gray-600/50">
+        {/* Mobile Bottom Navigation - Premium Glass Design */}
+        <div className="sm:hidden pb-safe" 
+             style={{ 
+               background: 'var(--glass-bg)',
+               backdropFilter: 'var(--backdrop-blur-heavy)',
+               borderTop: '1px solid var(--glass-border)'
+             }}>
+          <div className="flex justify-center p-3">
+            <div className="flex card-glass-heavy rounded-full p-1.5">
               {[
                 { id: 'main' as const, label: 'Chat', icon: '💬', badge: messageCount > 0 ? messageCount : null },
                 { id: 'files' as const, label: 'Files', icon: '📁', badge: selectedFile ? '•' : null },
@@ -197,32 +210,41 @@ export default function Home() {
                   onClick={() => setActiveView(item.id)}
                   className={`
                     relative flex flex-col items-center justify-center 
-                    min-w-[64px] min-h-[48px] px-4 py-2 
-                    rounded-full transition-all duration-200 
-                    touch-feedback ripple
+                    min-w-[68px] min-h-[52px] px-4 py-2.5 mx-1
+                    transition-all duration-300 
+                    touch-feedback ripple-primary interactive-lift
                     ${activeView === item.id 
-                      ? 'bg-blue-600 text-white shadow-lg transform scale-105' 
-                      : 'text-gray-400 hover:text-white hover:bg-gray-700/50 active:bg-gray-600'
+                      ? 'text-white' 
+                      : 'hover:text-white active:scale-95'
                     }
                   `}
                   style={{ 
-                    transform: activeView === item.id ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
-                    boxShadow: activeView === item.id ? '0 4px 16px rgba(59, 130, 246, 0.4)' : 'none'
+                    borderRadius: 'var(--radius-full)',
+                    background: activeView === item.id ? 'var(--primary-gradient)' : 'transparent',
+                    color: activeView === item.id ? 'white' : 'var(--foreground-secondary)',
+                    transform: activeView === item.id ? 'translateY(-3px) scale(1.05)' : 'translateY(0) scale(1)',
+                    boxShadow: activeView === item.id ? 'var(--shadow-floating), var(--shadow-glow)' : 'none'
                   }}
                 >
-                  <div className="text-lg leading-none">{item.icon}</div>
-                  <div className="text-xs mt-0.5 font-medium">{item.label}</div>
+                  <div className="text-lg leading-none mb-1">{item.icon}</div>
+                  <div className="text-xs font-semibold">{item.label}</div>
                   
                   {/* Badge/Indicator */}
                   {item.badge && (
-                    <div className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full px-1">
+                    <div className="absolute -top-1 -right-1 min-w-[18px] h-5 flex items-center justify-center rounded-full px-1.5 text-xs font-bold animate-pulse-premium"
+                         style={{ 
+                           background: 'var(--danger)', 
+                           color: 'white',
+                           boxShadow: 'var(--shadow-touch)'
+                         }}>
                       {item.badge}
                     </div>
                   )}
                   
                   {/* Active Indicator */}
                   {activeView === item.id && (
-                    <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-400 rounded-full animate-pulse"></div>
+                    <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse-premium"
+                         style={{ background: 'var(--primary-light)' }}></div>
                   )}
                 </button>
               ))}
