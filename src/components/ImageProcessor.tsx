@@ -283,7 +283,7 @@ export default function ImageProcessor({ onImageAnalyzed, onClose, isOpen }: Ima
                     <div className="bg-gray-900 rounded-lg p-4">
                       <img
                         src={uploadedImage.url}
-                        alt="Uploaded image"
+                        alt={`Preview of ${uploadedImage.name}`}
                         className="w-full h-auto max-h-64 object-contain rounded"
                       />
                     </div>

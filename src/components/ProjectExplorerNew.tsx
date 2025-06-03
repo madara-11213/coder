@@ -96,7 +96,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
         currentBranch.isMain) {
       initializeSampleProjects();
     }
-  }, [currentBranch?.fileTree?.length, currentBranch?.isMain]);
+  }, [currentBranch]);
 
   const handleFileSelect = (filePath: string) => {
     onFileSelect(filePath);

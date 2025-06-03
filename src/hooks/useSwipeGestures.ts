@@ -108,7 +108,7 @@ export function useSwipeGestures<T extends HTMLElement>(
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [threshold, preventDefaultTouchmoveEvent]);
+  }, [threshold, preventDefaultTouchmoveEvent, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }
@@ -229,7 +229,7 @@ export function useAdvancedGestures<T extends HTMLElement>(config: {
         clearTimeout(longPressTimerRef.current);
       }
     };
-  }, [longPressDelay]);
+  }, [longPressDelay, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }
@@ -319,7 +319,7 @@ export function usePullToRefresh<T extends HTMLElement>(
       element.removeEventListener('touchmove', handleTouchMove);
       element.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [threshold]);
+  }, [threshold, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return elementRef;
 }

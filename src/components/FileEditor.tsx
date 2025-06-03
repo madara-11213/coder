@@ -138,7 +138,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       });
       setActiveTab(newTab.id);
     }
-  }, [filePath]);
+  }, [filePath, findFileContent]);
 
   const activeTabData = tabs.find(tab => tab.id === activeTab);
 

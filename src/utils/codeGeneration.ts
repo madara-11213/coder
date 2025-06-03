@@ -237,7 +237,7 @@ export function createProjectFromStructure(structure: ProjectStructure): Project
   };
   
   // Group files by directory
-  const directories: { [path: string]: any[] } = {};
+  const directories: { [path: string]: ProjectNode[] } = {};
   
   structure.files.forEach(file => {
     const pathParts = file.path.split('/');

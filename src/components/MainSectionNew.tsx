@@ -13,7 +13,6 @@ import {
   Image
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { useProjectStore } from '@/store/projectStore';
 import { useBranchStore } from '@/store/branchStore';
 import BranchSelector from './BranchSelector';
 import StatusDetailModal from './StatusDetailModal';
@@ -126,14 +125,14 @@ I'm your intelligent coding companion with **real-time web search** capabilities
         setMessages([welcomeMessage]);
       }
     }
-  }, [currentBranch?.id]);
+  }, [currentBranch]);
 
   // Save messages to current branch whenever messages change
   useEffect(() => {
     if (currentBranch && messages.length > 0) {
       updateBranchChat(currentBranch.id, messages);
     }
-  }, [messages, currentBranch?.id, updateBranchChat]);
+  }, [messages, currentBranch, updateBranchChat]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -870,44 +869,7 @@ Please try again in a moment.`,
     return extensionMap[language.toLowerCase()] || 'txt';
   };
 
-  interface ProjectFile {
-    name: string;
-    content: string;
-  }
 
-  interface Project {
-    name: string;
-    files: ProjectFile[];
-  }
-
-  const convertProjectToFileTree = (project: Project): FileTreeNode[] => {
-    if (!project || !project.files) return [];
-    
-    // Create a project folder containing all the files
-    const projectNode: FileTreeNode = {
-      name: project.name,
-      type: 'folder',
-      path: project.name,
-      children: []
-    };
-    
-    // Convert each file to FileNode format
-    project.files.forEach((file: ProjectFile) => {
-      const fileNode: FileTreeNode = {
-        name: file.name,
-        type: 'file',
-        path: `${project.name}/${file.name}`,
-        content: file.content,
-        lastModified: new Date()
-      };
-      
-      // For now, put all files directly in the project folder
-      // TODO: Handle nested folder structures properly
-      projectNode.children?.push(fileNode);
-    });
-    
-    return [projectNode];
-  };
 
   const copyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
