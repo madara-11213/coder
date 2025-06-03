@@ -128,12 +128,12 @@ export default function Settings() {
     icon: React.ComponentType<{ size?: number }>; 
     children: React.ReactNode 
   }) => (
-    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+    <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
       <div className="flex items-center gap-3 mb-4">
-        <Icon size={20} className="text-blue-400" />
-        <h3 className="text-lg font-semibold">{title}</h3>
+        <Icon size={18} className="text-blue-400 sm:w-5 sm:h-5" />
+        <h3 className="text-base sm:text-lg font-semibold">{title}</h3>
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {children}
       </div>
     </div>
@@ -148,14 +148,14 @@ export default function Settings() {
     description?: string; 
     children: React.ReactNode 
   }) => (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
       <div className="flex-1">
         <label className="text-sm font-medium">{label}</label>
         {description && (
           <p className="text-xs text-gray-400 mt-1">{description}</p>
         )}
       </div>
-      <div className="ml-4">
+      <div className="sm:ml-4 flex-shrink-0">
         {children}
       </div>
     </div>
@@ -163,30 +163,30 @@ export default function Settings() {
 
   return (
     <div className="flex-1 bg-gray-900 overflow-y-auto">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 pb-20 sm:pb-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-gray-400 mt-1">Customize your coding environment</p>
+            <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
+            <p className="text-gray-400 mt-1 text-sm sm:text-base">Customize your coding environment</p>
           </div>
           
           <div className="flex items-center gap-3">
             {hasUnsavedChanges && (
-              <span className="text-yellow-400 text-sm">Unsaved changes</span>
+              <span className="text-yellow-400 text-xs sm:text-sm">Unsaved changes</span>
             )}
             
             <button
               onClick={saveSettings}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm sm:text-base"
             >
-              <Save size={16} />
+              <Save size={14} className="sm:w-4 sm:h-4" />
               Save
             </button>
           </div>
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-4 sm:gap-6">
           {/* Appearance */}
           <SettingSection title="Appearance" icon={Palette}>
             <SettingRow 

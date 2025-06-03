@@ -275,33 +275,33 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`flex flex-col bg-gray-900 text-white ${
-        isFullscreen ? 'fixed inset-0 z-50' : 'flex-1'
+        isFullscreen ? 'fixed inset-0 z-50' : 'flex-1 h-full max-h-full'
       }`}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
       {/* Editor Header */}
-      <div className="bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-2">
-          <Code className="text-blue-400" size={20} />
-          <span className="font-medium">File Editor</span>
-          <div className="text-xs text-gray-400">
-            {currentBranch?.name} branch
+      <div className="bg-gray-800 border-b border-gray-700 flex items-center justify-between px-2 sm:px-4 py-2 flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Code className="text-blue-400 flex-shrink-0" size={20} />
+          <span className="font-medium text-sm sm:text-base hidden sm:block">File Editor</span>
+          <div className="text-xs text-gray-400 truncate">
+            {currentBranch?.name}
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className="p-2 hover:bg-gray-700 rounded"
-            title="Search (Ctrl+F)"
+            className="p-1 sm:p-2 hover:bg-gray-700 rounded"
+            title="Search"
           >
-            <Search size={16} />
+            <Search size={14} className="sm:w-4 sm:h-4" />
           </button>
           
           <button
             onClick={() => setFontSize(prev => Math.min(prev + 2, 24))}
-            className="p-2 hover:bg-gray-700 rounded"
+            className="p-1 sm:p-2 hover:bg-gray-700 rounded hidden sm:block"
             title="Zoom In"
           >
             <ZoomIn size={16} />
@@ -309,7 +309,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
           
           <button
             onClick={() => setFontSize(prev => Math.max(prev - 2, 10))}
-            className="p-2 hover:bg-gray-700 rounded"
+            className="p-1 sm:p-2 hover:bg-gray-700 rounded hidden sm:block"
             title="Zoom Out"
           >
             <ZoomOut size={16} />
@@ -317,18 +317,18 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
           
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 hover:bg-gray-700 rounded"
+            className="p-1 sm:p-2 hover:bg-gray-700 rounded"
             title="Toggle Fullscreen"
           >
-            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {isFullscreen ? <Minimize2 size={14} className="sm:w-4 sm:h-4" /> : <Maximize2 size={14} className="sm:w-4 sm:h-4" />}
           </button>
           
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded text-red-400"
+            className="p-1 sm:p-2 hover:bg-gray-700 rounded text-red-400"
             title="Close Editor"
           >
-            <X size={16} />
+            <X size={14} className="sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
@@ -340,7 +340,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-gray-800 border-b border-gray-700 px-4 py-3"
+            className="bg-gray-800 border-b border-gray-700 px-2 sm:px-4 py-3 flex-shrink-0"
           >
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
@@ -383,12 +383,12 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       </AnimatePresence>
 
       {/* Tab Bar */}
-      <div className="bg-gray-800 border-b border-gray-700 flex items-center overflow-x-auto">
+      <div className="bg-gray-800 border-b border-gray-700 flex items-center overflow-x-auto flex-shrink-0">
         {tabs.map((tab) => (
           <motion.div
             key={tab.id}
             layout
-            className={`flex items-center gap-2 px-4 py-2 border-r border-gray-700 cursor-pointer min-w-0 group ${
+            className={`flex items-center gap-2 px-2 sm:px-4 py-2 border-r border-gray-700 cursor-pointer min-w-0 group ${
               activeTab === tab.id 
                 ? 'bg-gray-900 border-b-2 border-blue-500' 
                 : 'hover:bg-gray-700'
@@ -421,15 +421,15 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       {activeTabData && (
         <div className="flex-1 flex flex-col">
           {/* Editor Toolbar */}
-          <div className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <span className="text-gray-400">
+          <div className="bg-gray-800 border-b border-gray-700 px-2 sm:px-4 py-2 flex items-center justify-between text-sm flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+              <span className="text-gray-400 hidden sm:inline">
                 Language: <span className="text-white">{activeTabData.language}</span>
               </span>
               <span className="text-gray-400">
-                Lines: <span className="text-white">{activeTabData.content.split('\n').length}</span>
+                <span className="hidden sm:inline">Lines: </span><span className="text-white">{activeTabData.content.split('\n').length}</span>
               </span>
-              <span className="text-gray-400">
+              <span className="text-gray-400 hidden sm:inline">
                 Characters: <span className="text-white">{activeTabData.content.length}</span>
               </span>
             </div>
@@ -451,12 +451,12 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
           </div>
 
           {/* Code Editor */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative overflow-hidden">
             <textarea
               ref={textareaRef}
               value={activeTabData.content}
               onChange={(e) => updateTabContent(activeTabData.id, e.target.value)}
-              className="w-full h-full bg-gray-900 text-white p-4 font-mono resize-none focus:outline-none"
+              className="w-full h-full bg-gray-900 text-white p-2 sm:p-4 pl-14 sm:pl-16 font-mono resize-none focus:outline-none"
               style={{ 
                 fontSize: `${fontSize}px`,
                 lineHeight: '1.5',
@@ -467,8 +467,8 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
             />
             
             {/* Line Numbers Overlay */}
-            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gray-800 border-r border-gray-700 p-4 text-gray-400 text-right font-mono pointer-events-none"
-              style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}
+            <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-14 bg-gray-800 border-r border-gray-700 p-2 sm:p-4 text-gray-400 text-right font-mono pointer-events-none text-xs sm:text-sm"
+              style={{ fontSize: `${Math.max(fontSize - 2, 10)}px`, lineHeight: '1.5' }}
             >
               {activeTabData.content.split('\n').map((_, index) => (
                 <div key={index}>{index + 1}</div>

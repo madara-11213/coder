@@ -17,13 +17,16 @@ import {
   Loader,
   GitBranch,
   Pause,
-  Resume
+  Resume,
+  Image,
+  Paperclip
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useProjectStore } from '@/store/projectStore';
 import { useBranchStore } from '@/store/branchStore';
 import BranchSelector from './BranchSelector';
 import StatusDetailModal from './StatusDetailModal';
+import ImageProcessor from './ImageProcessor';
 
 interface Message {
   id: string;
@@ -56,7 +59,8 @@ export default function MainSection() {
     updateBranchFiles, 
     addToSTM, 
     addToLTM,
-    createBranch 
+    createBranch,
+    getBranch
   } = useBranchStore();
   
   const [messages, setMessages] = useState<Message[]>([]);
@@ -71,6 +75,7 @@ export default function MainSection() {
   });
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusDetail, setSelectedStatusDetail] = useState<any>(null);
+  const [showImageProcessor, setShowImageProcessor] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
@@ -349,7 +354,7 @@ Please find the most current and relevant information, including:
       // Create a new branch for AI code generation
       const timestamp = new Date().toISOString().slice(0, 16).replace('T', '-');
       const branchName = `ai-code-${timestamp}`;
-      const newBranchId = createBranch(branchName, `AI generated code: ${userInput.slice(0, 50)}...`, true);
+      const newBranchId = createBranch(branchName, `AI generated code: ${userInput.slice(0, 50)}...`, false);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -446,8 +451,8 @@ Generate only essential files with proper names. NO package.json, README, or oth
       setAiStatus({ isActive: true, currentAction: 'Creating project files...', progress: 60, isPaused: false });
       addStatusMessage('⚡ **Creating files directly in your project...**', 'generating', 60);
       
-      // Apply files directly to the current branch
-      const filesCreated = await applyGeneratedFiles(aiResponse);
+      // Apply files directly to the new branch
+      const filesCreated = await applyGeneratedFiles(aiResponse, newBranchId);
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -461,10 +466,8 @@ Generate only essential files with proper names. NO package.json, README, or oth
         setAiStatus({ isActive: true, currentAction: 'Code generation completed!', progress: 100, isPaused: false });
         addStatusMessage(`✅ **Successfully created ${filesCreated} file(s)**\n\n📁 Files added directly to your project\n🌿 Check the Files section to see your new code!`, 'completed', 100);
         
-        // Add to memory
-        if (currentBranch) {
-          addToSTM(currentBranch.id, `Generated ${filesCreated} files for: ${userInput.slice(0, 50)}...`);
-        }
+        // Add to memory for the new branch
+        addToSTM(newBranchId, `Generated ${filesCreated} files for: ${userInput.slice(0, 50)}...`);
       } else {
         addStatusMessage('⚠️ **No code blocks found in AI response. Please be more specific about what you want to build.**', 'error', 0);
       }
@@ -772,8 +775,9 @@ Please try again in a moment.`,
     return false;
   };
 
-  const applyGeneratedFiles = async (aiResponse: string): Promise<number> => {
-    if (!currentBranch) return 0;
+  const applyGeneratedFiles = async (aiResponse: string, targetBranchId?: string): Promise<number> => {
+    const targetBranch = targetBranchId ? getBranch(targetBranchId) : currentBranch;
+    if (!targetBranch) return 0;
     
     let filesCreated = 0;
     
@@ -810,8 +814,8 @@ Please try again in a moment.`,
       }
     }
     
-    // Add files to the current branch
-    const currentFileTree = [...(currentBranch.fileTree || [])];
+    // Add files to the target branch
+    const currentFileTree = [...(targetBranch.fileTree || [])];
     
     for (const newFile of newFiles) {
       const fileNode = {
@@ -839,7 +843,7 @@ Please try again in a moment.`,
     }
     
     // Update the branch with new files
-    updateBranchFiles(currentBranch.id, currentFileTree);
+    updateBranchFiles(targetBranch.id, currentFileTree);
     
     return filesCreated;
   };
@@ -915,6 +919,21 @@ Please try again in a moment.`,
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleImageAnalyzed = (analysis: string, imageUrl: string) => {
+    const imageMessage: Message = {
+      id: `${Date.now()}-image-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'user',
+      content: `📸 **Image Analysis Request**\n\n![Uploaded Image](${imageUrl})\n\n**Analysis:** ${analysis}\n\nPlease analyze this image and help me understand what can be built or implemented based on what you see.`,
+      timestamp: new Date()
+    };
+    
+    setMessages(prev => [...prev, imageMessage]);
+    setShowImageProcessor(false);
+    
+    // Automatically trigger AI response for image analysis
+    handleNormalChat(`I've uploaded an image. Here's the analysis: ${analysis}. Please help me understand what can be built or implemented based on this image.`);
   };
 
   return (
@@ -1088,12 +1107,21 @@ Please try again in a moment.`,
       {/* Input Area */}
       <div className="border-t border-gray-700 p-3 sm:p-4 pb-safe flex-shrink-0">
         <div className="flex gap-2 sm:gap-3">
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <button
+              onClick={() => setShowImageProcessor(true)}
+              className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+              title="Upload and analyze image"
+            >
+              <Image size={16} />
+            </button>
+          </div>
           <textarea
             ref={inputRef}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me to build something or explain your code..."
+            placeholder="Ask me to build something, explain your code, or upload an image..."
             className="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 sm:px-4 sm:py-2 resize-none focus:outline-none focus:border-blue-500 text-sm sm:text-base"
             rows={1}
             style={{ minHeight: '40px', maxHeight: '120px' }}
@@ -1108,7 +1136,7 @@ Please try again in a moment.`,
         </div>
         
         <div className="text-xs text-gray-500 mt-2 px-1">
-          💡 Ask me to "create a React app" or "explain this code" - I work directly with your files!
+          💡 Ask me to "create a React app", "explain this code", or upload an image for analysis!
         </div>
       </div>
 
@@ -1123,6 +1151,13 @@ Please try again in a moment.`,
           status={selectedStatusDetail}
         />
       )}
+
+      {/* Image Processor Modal */}
+      <ImageProcessor
+        isOpen={showImageProcessor}
+        onClose={() => setShowImageProcessor(false)}
+        onImageAnalyzed={handleImageAnalyzed}
+      />
     </div>
   );
 }
