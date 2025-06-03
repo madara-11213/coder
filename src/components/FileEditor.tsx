@@ -6,17 +6,11 @@ import {
   X, 
   Copy, 
   Download, 
-  Upload, 
   Edit3, 
   Move, 
   Trash2,
-  File,
-  Folder,
   FileText,
   Code,
-  Image,
-  Settings,
-  MoreHorizontal,
   Search,
   Replace,
   ZoomIn,
@@ -53,7 +47,6 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
   const [fontSize, setFontSize] = useState(14);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const currentBranch = getCurrentBranch();
@@ -91,7 +84,19 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
   const findFileContent = (path: string): string => {
     if (!currentBranch) return '';
     
-    const findInNodes = (nodes: any[], targetPath: string): string => {
+    interface FileNode {
+      name: string;
+      path: string;
+      type: 'file' | 'folder';
+      content?: string;
+      children?: FileNode[];
+      expanded?: boolean;
+      size?: number;
+      lastModified?: Date;
+      isNew?: boolean;
+    }
+    
+    const findInNodes = (nodes: FileNode[], targetPath: string): string => {
       for (const node of nodes) {
         if (node.path === targetPath && node.type === 'file') {
           return node.content || '';
@@ -150,7 +155,19 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
     if (!tab || !currentBranch) return;
     
     // Update file in current branch
-    const updateNode = (nodes: any[]): any[] => {
+    interface FileNode {
+      name: string;
+      path: string;
+      type: 'file' | 'folder';
+      content?: string;
+      children?: FileNode[];
+      expanded?: boolean;
+      size?: number;
+      lastModified?: Date;
+      isNew?: boolean;
+    }
+    
+    const updateNode = (nodes: FileNode[]): FileNode[] => {
       return nodes.map(node => {
         if (node.path === tab.filePath && node.type === 'file') {
           return { ...node, content: tab.content, lastModified: new Date() };
@@ -221,9 +238,8 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
     updateTabContent(activeTabData.id, newContent);
   };
 
-  const handleContextMenu = (e: React.MouseEvent, filePath: string) => {
+  const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setSelectedFile(filePath);
     setContextMenuPos({ x: e.clientX, y: e.clientY });
     setShowContextMenu(true);
   };
@@ -394,7 +410,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
                 : 'hover:bg-gray-700'
             }`}
             onClick={() => setActiveTab(tab.id)}
-            onContextMenu={(e) => handleContextMenu(e, tab.filePath)}
+            onContextMenu={handleContextMenu}
           >
             <div className="flex items-center gap-2 min-w-0">
               <FileText size={14} className="text-blue-400 flex-shrink-0" />

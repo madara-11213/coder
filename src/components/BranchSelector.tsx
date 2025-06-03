@@ -7,9 +7,7 @@ import {
   ChevronDown, 
   Trash2, 
   GitMerge,
-  Copy,
   Check,
-  X,
   Clock,
   FolderOpen
 } from 'lucide-react';
@@ -101,7 +99,13 @@ export default function BranchSelector({ onBranchChange }: BranchSelectorProps) 
     });
   };
 
-  const getBranchIcon = (branch: any) => {
+  interface Branch {
+    isMain?: boolean;
+    name: string;
+    description?: string;
+  }
+
+  const getBranchIcon = (branch: Branch) => {
     if (branch.isMain) {
       return <GitBranch className="text-green-400" size={16} />;
     }
