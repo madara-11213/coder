@@ -141,7 +141,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       ]
     };
 
-    if (currentBranch) {
+    if (currentBranch && currentBranch.fileTree) {
       updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, newProject]);
     }
     progress.status = 'completed';
@@ -162,7 +162,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
     };
 
     // Add to uploads folder or create it
-    if (currentBranch) {
+    if (currentBranch && currentBranch.fileTree) {
       const uploadsFolder = currentBranch.fileTree.find(node => node.name === 'uploads');
       if (uploadsFolder && uploadsFolder.children) {
         uploadsFolder.children.push(newFile);
@@ -225,7 +225,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       children: []
     };
 
-    if (currentBranch) {
+    if (currentBranch && currentBranch.fileTree) {
       updateBranchFiles(currentBranch.id, [...currentBranch.fileTree, newProject]);
     }
   };
@@ -416,7 +416,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {!currentBranch || currentBranch.fileTree.length === 0 ? (
+        {!currentBranch || !currentBranch.fileTree || currentBranch.fileTree.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
             <FolderPlus size={48} className="mx-auto mb-2 opacity-50" />
             <p>No projects yet</p>
