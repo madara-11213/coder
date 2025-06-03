@@ -10,8 +10,7 @@ import {
   Play,
   Loader,
   Pause,
-  Image,
-  Paperclip
+  Image
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useProjectStore } from '@/store/projectStore';
@@ -45,13 +44,11 @@ interface AIStatus {
 }
 
 export default function MainSection() {
-  const { generateProjectFromAI } = useProjectStore();
   const { 
     getCurrentBranch, 
     updateBranchChat, 
     updateBranchFiles, 
-    addToSTM, 
-    addToLTM,
+    addToSTM,
     createBranch,
     getBranch
   } = useBranchStore();
@@ -67,7 +64,13 @@ export default function MainSection() {
     isPaused: false 
   });
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [selectedStatusDetail, setSelectedStatusDetail] = useState<any>(null);
+  const [selectedStatusDetail, setSelectedStatusDetail] = useState<{
+    id: string;
+    type: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error';
+    title: string;
+    description?: string;
+    progress?: number;
+  } | null>(null);
   const [showImageProcessor, setShowImageProcessor] = useState(false);
   const [showMultiImageChat, setShowMultiImageChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -259,7 +262,16 @@ Please find the most current and relevant information, including:
 
     let content = '';
     
-    const processNode = (node: any, depth: number = 0) => {
+    interface FileTreeNode {
+      type: 'file' | 'folder';
+      path: string;
+      name?: string;
+      content?: string;
+      children?: FileTreeNode[];
+      lastModified?: Date;
+    }
+
+    const processNode = (node: FileTreeNode, depth: number = 0) => {
       const indent = '  '.repeat(depth);
       
       if (node.type === 'file' && node.content) {
@@ -269,7 +281,7 @@ Please find the most current and relevant information, including:
       } else if (node.type === 'folder') {
         content += `\n${indent}📂 Folder: ${node.path}\n`;
         if (node.children) {
-          node.children.forEach((child: any) => processNode(child, depth + 1));
+          node.children.forEach((child: FileTreeNode) => processNode(child, depth + 1));
         }
       }
     };
@@ -278,26 +290,26 @@ Please find the most current and relevant information, including:
     return content;
   };
 
-  const addStatusMessage = (content: string, status?: string, progress?: number) => {
+  const addStatusMessage = (content: string, status?: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error', progress?: number) => {
     const statusId = `status-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const statusMessage: Message = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: 'status',
       content,
       timestamp: new Date(),
-      status: status as any,
-      statusDetail: {
+      status,
+      statusDetail: status ? {
         id: statusId,
-        type: status as any,
+        type: status,
         title: content.replace(/[#*]/g, '').trim(),
-        description: getStatusDescription(status as any),
+        description: getStatusDescription(status),
         progress
-      }
+      } : undefined
     };
     setMessages(prev => [...prev, statusMessage]);
   };
 
-  const getStatusDescription = (status: string) => {
+  const getStatusDescription = (status: 'analyzing' | 'generating' | 'running' | 'fixing' | 'completed' | 'error') => {
     switch (status) {
       case 'analyzing': return 'AI is analyzing your request and project structure';
       case 'generating': return 'Generating code and creating project files in real-time';
@@ -730,7 +742,6 @@ Please try again in a moment.`,
     
     if (updates.length === 0) {
       while ((match = codeBlockRegex.exec(aiResponse)) !== null) {
-        const language = match[1] || '';
         const filename = match[2];
         const content = match[3].trim();
         
@@ -754,7 +765,7 @@ Please try again in a moment.`,
     return filesUpdated;
   };
 
-  const updateFileInBranch = (nodes: any[], targetFilename: string, newContent: string): boolean => {
+  const updateFileInBranch = (nodes: FileTreeNode[], targetFilename: string, newContent: string): boolean => {
     for (const node of nodes) {
       if (node.type === 'file' && (node.name === targetFilename || node.path.endsWith(targetFilename))) {
         node.content = newContent;
@@ -859,36 +870,40 @@ Please try again in a moment.`,
     return extensionMap[language.toLowerCase()] || 'txt';
   };
 
-  const convertProjectToFileTree = (project: any): any[] => {
+  interface ProjectFile {
+    name: string;
+    content: string;
+  }
+
+  interface Project {
+    name: string;
+    files: ProjectFile[];
+  }
+
+  const convertProjectToFileTree = (project: Project): FileTreeNode[] => {
     if (!project || !project.files) return [];
     
     // Create a project folder containing all the files
-    const projectNode = {
+    const projectNode: FileTreeNode = {
       name: project.name,
       type: 'folder',
       path: project.name,
-      expanded: true,
-      isNew: true,
-      children: [] as any[]
+      children: []
     };
     
     // Convert each file to FileNode format
-    project.files.forEach((file: any) => {
-      const pathParts = file.path.split('/');
-      const fileName = pathParts.pop() || file.filename;
-      
-      const fileNode = {
-        name: fileName,
+    project.files.forEach((file: ProjectFile) => {
+      const fileNode: FileTreeNode = {
+        name: file.name,
         type: 'file',
-        path: `${project.name}/${file.path}`,
+        path: `${project.name}/${file.name}`,
         content: file.content,
-        isNew: true,
         lastModified: new Date()
       };
       
       // For now, put all files directly in the project folder
       // TODO: Handle nested folder structures properly
-      projectNode.children.push(fileNode);
+      projectNode.children?.push(fileNode);
     });
     
     return [projectNode];
@@ -931,7 +946,11 @@ Please try again in a moment.`,
     handleNormalChat(`I've uploaded an image. Here's the analysis: ${analysis}. Please help me understand what can be built or implemented based on this image.`);
   };
 
-  const handleMultiImagesAnalyzed = (images: any[], combinedAnalysis: string) => {
+  interface AnalyzedImage {
+    hostedUrl?: string;
+  }
+
+  const handleMultiImagesAnalyzed = (images: AnalyzedImage[], combinedAnalysis: string) => {
     const imageUrls = images
       .filter(img => img.hostedUrl)
       .map((img, index) => `![Image ${index + 1}](${img.hostedUrl})`)
@@ -1068,7 +1087,7 @@ Please try again in a moment.`,
         if (jsonResponse.choices?.[0]?.message?.content) {
           return jsonResponse.choices[0].message.content;
         }
-      } catch (parseError) {
+      } catch {
         console.warn('Could not parse AI response as JSON, using raw text');
       }
 
