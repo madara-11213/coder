@@ -7,17 +7,9 @@ import {
   User, 
   Copy, 
   Trash2, 
-  Settings as SettingsIcon,
-  Code,
-  FileText,
-  Lightbulb,
   Play,
-  Bug,
-  Sparkles,
   Loader,
-  GitBranch,
   Pause,
-  Resume,
   Image,
   Paperclip
 } from 'lucide-react';

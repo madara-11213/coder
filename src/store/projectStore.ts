@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { parseAIResponse, detectProjectStructure, createProjectFromStructure, ProjectStructure, CodeBlock } from '@/utils/codeGeneration';
+import { parseAIResponse, detectProjectStructure, createProjectFromStructure, ProjectStructure } from '@/utils/codeGeneration';
 
 export interface FileNode {
   name: string;
@@ -31,7 +31,7 @@ export interface ProjectState {
   createNewFolder: (parentPath: string, folderName: string) => void;
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+export const useProjectStore = create<ProjectState>((set) => ({
   fileTree: [],
   selectedFile: null,
   isGenerating: false,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, X, Image as ImageIcon, Loader, Download } from 'lucide-react';
+import { X, Image as ImageIcon, Loader, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ImageProcessorProps {
@@ -306,7 +306,7 @@ export default function ImageProcessor({ onImageAnalyzed, onClose, isOpen }: Ima
                         </div>
                       ) : (
                         <div className="flex items-center justify-center h-full text-gray-400">
-                          Click "Analyze Image" to get detailed analysis
+                          Click &quot;Analyze Image&quot; to get detailed analysis
                         </div>
                       )}
                     </div>
