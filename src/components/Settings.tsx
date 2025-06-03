@@ -5,17 +5,12 @@ import {
   Monitor, 
   Palette, 
   Type, 
-  Keyboard, 
   Globe, 
   Shield, 
   Download,
   Upload,
   RotateCcw,
   Save,
-  Eye,
-  Moon,
-  Sun,
-  Volume2
 } from 'lucide-react';
 
 interface SettingsData {
