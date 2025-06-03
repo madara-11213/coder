@@ -79,6 +79,8 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
   const [newFileName, setNewFileName] = useState('');
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [touchTimer, setTouchTimer] = useState<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -255,12 +257,41 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
   const handleRightClick = (e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
     e.stopPropagation();
+    showContextMenu(e.clientX, e.clientY, node);
+  };
+
+  const showContextMenu = (x: number, y: number, node: FileNode) => {
     setContextMenu({
       show: true,
-      x: e.clientX,
-      y: e.clientY,
+      x,
+      y,
       node
     });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, node: FileNode) => {
+    const timer = setTimeout(() => {
+      const touch = e.touches[0];
+      showContextMenu(touch.clientX, touch.clientY, node);
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 500);
+    setTouchTimer(timer);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchTimer) {
+      clearTimeout(touchTimer);
+      setTouchTimer(null);
+    }
+  };
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    if (isSelectionMode) {
+      setSelectedNodes(new Set());
+    }
   };
 
   const closeContextMenu = () => {
@@ -583,8 +614,11 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
           style={{ paddingLeft: `${8 + indent}px` }}
           onClick={(e) => {
             if (!isEditing) {
-              if (e.ctrlKey || e.metaKey) {
-                // Multi-select with Ctrl/Cmd
+              if (isSelectionMode) {
+                // In selection mode, just toggle selection
+                toggleNodeSelection(node.path);
+              } else if (e.ctrlKey || e.metaKey) {
+                // Multi-select with Ctrl/Cmd (desktop)
                 toggleNodeSelection(node.path);
               } else if (node.type === 'folder') {
                 toggleFolder(node.path);
@@ -594,6 +628,9 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
             }
           }}
           onContextMenu={(e) => handleRightClick(e, node)}
+          onTouchStart={(e) => handleTouchStart(e, node)}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           {node.type === 'folder' && (
             <span className="mr-1">
@@ -676,7 +713,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
         <h2 className="text-lg font-semibold mb-3">Projects</h2>
         
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button 
             className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm"
             onClick={createNewProject}
@@ -691,6 +728,20 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
           >
             <Upload size={14} />
             Upload
+          </button>
+
+          {/* Mobile Selection Mode Toggle */}
+          <button 
+            className={`sm:hidden flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
+              isSelectionMode 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-gray-600 hover:bg-gray-700 text-gray-200'
+            }`}
+            onClick={toggleSelectionMode}
+            title={isSelectionMode ? 'Exit Selection Mode' : 'Enter Selection Mode'}
+          >
+            <Check size={14} />
+            {isSelectionMode ? 'Exit Select' : 'Select'}
           </button>
         </div>
 
@@ -768,16 +819,34 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       </div>
 
       {/* Selection Info */}
-      {selectedNodes.size > 0 && (
+      {(selectedNodes.size > 0 || isSelectionMode) && (
         <div className="px-4 py-2 bg-blue-600/20 border-t border-blue-600/50 text-sm">
           <div className="flex items-center justify-between">
-            <span className="text-blue-400">{selectedNodes.size} file(s) selected</span>
-            <button
-              onClick={() => setSelectedNodes(new Set())}
-              className="text-blue-400 hover:text-blue-300"
-            >
-              Clear
-            </button>
+            <span className="text-blue-400">
+              {isSelectionMode && selectedNodes.size === 0 && (
+                <span className="sm:hidden">📱 Tap files to select • </span>
+              )}
+              {selectedNodes.size > 0 ? `${selectedNodes.size} file(s) selected` : 
+               isSelectionMode ? 'Selection mode active' : ''}
+            </span>
+            <div className="flex gap-2">
+              {selectedNodes.size > 0 && (
+                <button
+                  onClick={() => setSelectedNodes(new Set())}
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  Clear
+                </button>
+              )}
+              {isSelectionMode && (
+                <button
+                  onClick={toggleSelectionMode}
+                  className="text-blue-400 hover:text-blue-300 sm:hidden"
+                >
+                  Exit
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
