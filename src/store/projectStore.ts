@@ -173,6 +173,9 @@ function addNodeToParent(nodes: FileNode[], parentPath: string, newNode: FileNod
 
 // Initialize with sample data
 export const initializeSampleProjects = () => {
+  // Clear existing projects first
+  useProjectStore.getState().setFileTree([]);
+  
   const sampleProjects: FileNode[] = [
     {
       name: 'my-react-app',

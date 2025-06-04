@@ -185,7 +185,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
   return (
     <div className="flex flex-col h-full bg-gray-900 text-white">
       {/* Desktop Header - Hidden on mobile since mobile header is in parent */}
-      <div className="hidden sm:flex bg-gray-800 border-b border-gray-700 items-center justify-between px-4 py-3">
+      <div className="hidden sm:flex bg-gray-800 border-b border-gray-700 items-center justify-between px-4 py-2">
         <div className="flex items-center gap-3">
           <Code className="text-blue-400" size={20} />
           <div>
@@ -297,7 +297,7 @@ export default function FileEditor({ filePath, onClose, onSave }: FileEditorProp
       )}
 
       {/* File Info Bar */}
-      <div className="bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between text-sm">
+      <div className="bg-gray-800 border-b border-gray-700 px-4 py-1.5 flex items-center justify-between text-sm">
         <div className="flex items-center gap-4">
           <span className="text-gray-400">
             Language: <span className="text-white">{language}</span>

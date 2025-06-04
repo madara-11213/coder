@@ -255,7 +255,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
   const filteredFiles = filterFiles(fileTree, searchQuery);
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 sm:w-80 sm:border-r border-gray-700">
+    <div className="flex flex-col h-full bg-gray-800">
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-gray-700">
         <div className="flex items-center justify-between mb-3">
