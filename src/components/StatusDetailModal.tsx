@@ -267,21 +267,23 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+        style={{ backgroundColor: '#000000' }}
         onClick={onClose}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 100 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 100 }}
-          className={`bg-black border border-gray-800 shadow-2xl flex flex-col ${
+          className={`border border-gray-800 shadow-2xl flex flex-col ${
             isFullscreen 
               ? 'w-full h-full rounded-none' 
               : 'w-full h-[90vh] sm:h-auto sm:max-h-[85vh] sm:max-w-4xl sm:rounded-xl rounded-t-2xl sm:mx-4'
           }`}
+          style={{ backgroundColor: '#000000' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-black border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl">
+          <div className="border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl" style={{ backgroundColor: '#000000' }}>
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {getStatusIcon()}
               <div className="flex-1 min-w-0">
@@ -329,7 +331,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           </div>
 
           {/* Tabs */}
-          <div className="bg-black border-b border-gray-800 px-2 sm:px-6 flex overflow-x-auto custom-scrollbar">
+          <div className="border-b border-gray-800 px-2 sm:px-6 flex overflow-x-auto custom-scrollbar" style={{ backgroundColor: '#000000' }}>
             {[
               { id: 'overview' as const, label: 'Overview', icon: CheckCircle },
               { id: 'terminal' as const, label: 'Terminal', icon: Terminal },
@@ -373,13 +375,13 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                     </div>
                   </div>
                   
-                  <div className="bg-gray-700 rounded-lg p-4">
+                  <div className="border border-gray-700 rounded-lg p-4" style={{ backgroundColor: '#000000' }}>
                     <h3 className="text-sm font-medium text-gray-300 mb-2">Logs</h3>
                     <span className="text-2xl font-bold text-white">{logs.length}</span>
                     <span className="text-sm text-gray-400 ml-2">entries</span>
                   </div>
                   
-                  <div className="bg-gray-700 rounded-lg p-4">
+                  <div className="border border-gray-700 rounded-lg p-4" style={{ backgroundColor: '#000000' }}>
                     <h3 className="text-sm font-medium text-gray-300 mb-2">Errors</h3>
                     <span className={`text-2xl font-bold ${errors.length > 0 ? 'text-red-400' : 'text-green-400'}`}>
                       {errors.length}
@@ -388,11 +390,11 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                   </div>
                 </div>
 
-                <div className="bg-gray-700 rounded-lg p-4">
+                <div className="border border-gray-700 rounded-lg p-4" style={{ backgroundColor: '#000000' }}>
                   <h3 className="text-lg font-medium text-white mb-4">Recent Activity</h3>
                   <div className="space-y-2">
                     {logs.slice(-5).map((log, index) => (
-                      <div key={index} className="flex items-center gap-3 p-2 bg-gray-600 rounded">
+                      <div key={index} className="flex items-center gap-3 p-2 border border-gray-700 rounded" style={{ backgroundColor: '#000000' }}>
                         <div className={`w-2 h-2 rounded-full ${
                           log.level === 'error' ? 'bg-red-400' :
                           log.level === 'warning' ? 'bg-yellow-400' :
@@ -411,8 +413,8 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
             )}
 
             {activeTab === 'terminal' && (
-              <div className="h-full bg-black text-green-400 font-mono text-sm">
-                <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-600">
+              <div className="h-full text-green-400 font-mono text-sm" style={{ backgroundColor: '#000000' }}>
+                <div className="flex items-center justify-between p-4 border-b border-gray-600" style={{ backgroundColor: '#000000' }}>
                   <span className="text-gray-300">Terminal Output</span>
                   <div className="flex items-center gap-2">
                     <button
@@ -433,7 +435,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                     )}
                   </div>
                 </div>
-                <div ref={terminalRef} className="p-4 overflow-y-auto h-full">
+                <div ref={terminalRef} className="p-4 overflow-y-auto h-full" style={{ backgroundColor: '#000000' }}>
                   {terminalOutput.map((line, index) => (
                     <div key={index} className="whitespace-pre-wrap">
                       {line}
@@ -450,7 +452,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
             )}
 
             {activeTab === 'code' && (
-              <div className="p-6 overflow-y-auto h-full">
+              <div className="p-6 overflow-y-auto h-full" style={{ backgroundColor: '#000000' }}>
                 <h3 className="text-lg font-medium text-white mb-4">Code Executions</h3>
                 {codeExecutions.length === 0 ? (
                   <div className="text-center text-gray-400 py-8">
@@ -460,8 +462,8 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
                 ) : (
                   <div className="space-y-4">
                     {codeExecutions.map((execution, index) => (
-                      <div key={index} className="bg-gray-700 rounded-lg overflow-hidden">
-                        <div className="bg-gray-600 px-4 py-2 flex items-center justify-between">
+                      <div key={index} className="border border-gray-700 rounded-lg overflow-hidden" style={{ backgroundColor: '#000000' }}>
+                        <div className="border-b border-gray-600 px-4 py-2 flex items-center justify-between" style={{ backgroundColor: '#000000' }}>
                           <span className="text-sm font-medium text-white">
                             {execution.language} - {execution.duration}ms
                           </span>
@@ -493,7 +495,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
             )}
 
             {activeTab === 'errors' && (
-              <div className="p-6 overflow-y-auto h-full">
+              <div className="p-6 overflow-y-auto h-full" style={{ backgroundColor: '#000000' }}>
                 <h3 className="text-lg font-medium text-white mb-4">Error Details</h3>
                 {errors.length === 0 ? (
                   <div className="text-center text-gray-400 py-8">
@@ -527,19 +529,19 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
             )}
 
             {activeTab === 'logs' && (
-              <div className="h-full flex flex-col">
-                <div className="bg-gray-700 px-6 py-3 border-b border-gray-600 flex items-center justify-between">
+              <div className="h-full flex flex-col" style={{ backgroundColor: '#000000' }}>
+                <div className="px-6 py-3 border-b border-gray-600 flex items-center justify-between" style={{ backgroundColor: '#000000' }}>
                   <span className="text-white font-medium">System Logs</span>
                   <button
                     onClick={() => copyToClipboard(logs.map(l => `[${l.timestamp.toISOString()}] ${l.level}: ${l.message}`).join('\n'))}
-                    className="text-sm px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded"
+                    className="text-sm px-3 py-1 border border-gray-600 hover:bg-gray-700 rounded"
                   >
                     Copy All
                   </button>
                 </div>
-                <div ref={logsRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+                <div ref={logsRef} className="flex-1 overflow-y-auto p-4 space-y-2" style={{ backgroundColor: '#000000' }}>
                   {logs.map((log, index) => (
-                    <div key={index} className="flex items-start gap-3 p-2 hover:bg-gray-700/50 rounded">
+                    <div key={index} className="flex items-start gap-3 p-2 hover:bg-gray-700/50 rounded" style={{ backgroundColor: '#000000' }}>
                       <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                         log.level === 'error' ? 'bg-red-400' :
                         log.level === 'warning' ? 'bg-yellow-400' :

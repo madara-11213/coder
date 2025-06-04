@@ -170,8 +170,20 @@ What would you like me to help you build or fix today?`,
       });
 
       if (response.ok) {
-        const data = await response.text();
-        return data;
+        const responseText = await response.text();
+        
+        try {
+          // Try to parse as JSON first
+          const jsonResponse = JSON.parse(responseText);
+          if (jsonResponse.choices?.[0]?.message?.content) {
+            return jsonResponse.choices[0].message.content;
+          }
+        } catch {
+          // If not JSON, use raw text
+          console.warn('Search response is not JSON, using raw text');
+        }
+        
+        return responseText;
       } else {
         throw new Error(`Search failed: ${response.status}`);
       }
@@ -216,8 +228,20 @@ What would you like me to help you build or fix today?`,
       });
 
       if (response.ok) {
-        const generatedCode = await response.text();
-        return generatedCode;
+        const responseText = await response.text();
+        
+        try {
+          // Try to parse as JSON first
+          const jsonResponse = JSON.parse(responseText);
+          if (jsonResponse.choices?.[0]?.message?.content) {
+            return jsonResponse.choices[0].message.content;
+          }
+        } catch {
+          // If not JSON, use raw text
+          console.warn('AI response is not JSON, using raw text');
+        }
+        
+        return responseText;
       } else {
         throw new Error(`Generation failed: ${response.status}`);
       }
@@ -415,17 +439,14 @@ What would you like me to help you build or fix today?`,
       progress: 100
     };
 
-    setMessages(prev => {
-      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
-      return [...withoutAnalyzing, {
-        id: `${Date.now()}-completed`,
-        type: 'status',
-        content: '✅ Analysis complete - Click for detailed explanation',
-        timestamp: new Date(),
-        status: completedStatus,
-        actionType: 'explanation'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-completed`,
+      type: 'status',
+      content: '✅ Analysis complete - Click for detailed explanation',
+      timestamp: new Date(),
+      status: completedStatus,
+      actionType: 'explanation'
+    }]);
   };
 
   const handleGenerationRequest = async (input: string) => {
@@ -437,17 +458,14 @@ What would you like me to help you build or fix today?`,
       progress: 50
     };
     
-    setMessages(prev => {
-      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
-      return [...withoutAnalyzing, {
-        id: `${Date.now()}-generating`,
-        type: 'status',
-        content: '⚡ Generating code and files',
-        timestamp: new Date(),
-        status: generatingStatus,
-        actionType: 'generation'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-generating`,
+      type: 'status',
+      content: '⚡ Generating code and files',
+      timestamp: new Date(),
+      status: generatingStatus,
+      actionType: 'generation'
+    }]);
 
     // First, search for latest information
     const searchResults = await searchForLatestInfo(input);
@@ -466,17 +484,14 @@ What would you like me to help you build or fix today?`,
       progress: 75
     };
     
-    setMessages(prev => {
-      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating'].includes(msg.status.type));
-      return [...withoutPrevious, {
-        id: `${Date.now()}-running`,
-        type: 'status',
-        content: '🚀 Running and testing code',
-        timestamp: new Date(),
-        status: runningStatus,
-        actionType: 'generation'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-running`,
+      type: 'status',
+      content: '🚀 Running and testing code',
+      timestamp: new Date(),
+      status: runningStatus,
+      actionType: 'generation'
+    }]);
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -488,17 +503,14 @@ What would you like me to help you build or fix today?`,
       progress: 90
     };
     
-    setMessages(prev => {
-      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
-      return [...withoutPrevious, {
-        id: `${Date.now()}-testing`,
-        type: 'status',
-        content: '🧪 Testing code functionality',
-        timestamp: new Date(),
-        status: testingStatus,
-        actionType: 'generation'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-testing`,
+      type: 'status',
+      content: '🧪 Testing code functionality',
+      timestamp: new Date(),
+      status: testingStatus,
+      actionType: 'generation'
+    }]);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -510,17 +522,14 @@ What would you like me to help you build or fix today?`,
       progress: 100
     };
     
-    setMessages(prev => {
-      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
-      return [...withoutPrevious, {
-        id: `${Date.now()}-completed`,
-        type: 'status',
-        content: '✅ Code generated successfully',
-        timestamp: new Date(),
-        status: completedStatus,
-        actionType: 'generation'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-completed`,
+      type: 'status',
+      content: '✅ Code generated successfully',
+      timestamp: new Date(),
+      status: completedStatus,
+      actionType: 'generation'
+    }]);
   };
 
   const handleEditingRequest = async (input: string) => {
@@ -534,17 +543,14 @@ What would you like me to help you build or fix today?`,
       progress: 60
     };
     
-    setMessages(prev => {
-      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
-      return [...withoutAnalyzing, {
-        id: `${Date.now()}-editing`,
-        type: 'status',
-        content: '✏️ Editing existing files',
-        timestamp: new Date(),
-        status: editingStatus,
-        actionType: 'editing'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-editing`,
+      type: 'status',
+      content: '✏️ Editing existing files',
+      timestamp: new Date(),
+      status: editingStatus,
+      actionType: 'editing'
+    }]);
 
     // First, search for latest information
     const searchResults = await searchForLatestInfo(input);
@@ -563,17 +569,14 @@ What would you like me to help you build or fix today?`,
       progress: 85
     };
     
-    setMessages(prev => {
-      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating'].includes(msg.status.type));
-      return [...withoutPrevious, {
-        id: `${Date.now()}-testing`,
-        type: 'status',
-        content: '🧪 Testing edited files',
-        timestamp: new Date(),
-        status: testingStatus,
-        actionType: 'editing'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-testing`,
+      type: 'status',
+      content: '🧪 Testing edited files',
+      timestamp: new Date(),
+      status: testingStatus,
+      actionType: 'editing'
+    }]);
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -585,17 +588,14 @@ What would you like me to help you build or fix today?`,
       progress: 100
     };
     
-    setMessages(prev => {
-      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
-      return [...withoutPrevious, {
-        id: `${Date.now()}-completed`,
-        type: 'status',
-        content: '✅ Files updated successfully',
-        timestamp: new Date(),
-        status: completedStatus,
-        actionType: 'editing'
-      }];
-    });
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-completed`,
+      type: 'status',
+      content: '✅ Files updated successfully',
+      timestamp: new Date(),
+      status: completedStatus,
+      actionType: 'editing'
+    }]);
   };
 
 
