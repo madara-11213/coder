@@ -34,11 +34,17 @@ export default function Home() {
   const handleFileClose = () => {
     setSelectedFile(null);
     setShowFileEditor(false);
+    // Ensure we return to files view on mobile when closing
+    if (window.innerWidth < 640) { // sm breakpoint
+      setActiveView('files');
+    }
   };
 
   const handleBackToFiles = () => {
     setShowFileEditor(false);
     setSelectedFile(null);
+    // Ensure we return to files view
+    setActiveView('files');
   };
 
   const handleFileSave = (filePath: string, content: string) => {
@@ -159,8 +165,8 @@ export default function Home() {
           {renderContent()}
         </div>
         
-        {/* Mobile Bottom Navigation */}
-        <div className="sm:hidden bg-black/30 backdrop-blur-md border-t border-white/10 flex-shrink-0">
+        {/* Mobile Bottom Navigation - Always show when not in file editor */}
+        <div className={`sm:hidden bg-black/30 backdrop-blur-md border-t border-white/10 flex-shrink-0 transition-all duration-300 ${showFileEditor ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           <div className="flex justify-center p-4">
             <div className="flex bg-black/50 backdrop-blur-md rounded-full p-2 border border-white/10">
               {[
@@ -181,7 +187,7 @@ export default function Home() {
                     relative flex flex-col items-center justify-center 
                     min-w-[64px] min-h-[48px] px-3 py-2 mx-1 rounded-full
                     transition-all duration-300 
-                    ${(activeView === item.id && !showFileEditor) || (item.id === 'files' && showFileEditor)
+                    ${activeView === item.id
                       ? 'bg-blue-600 text-white shadow-lg' 
                       : 'text-gray-300 hover:text-white hover:bg-white/10'
                     }

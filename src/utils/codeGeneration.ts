@@ -15,86 +15,84 @@ export interface ProjectStructure {
 export function parseAIResponse(content: string): CodeBlock[] {
   const codeBlocks: CodeBlock[] = [];
   
-  // Enhanced regex patterns to match different code block formats
-  const patterns = [
-    // Standard format: ```language\ncode```
-    /```(\w+)?\s*\n([\s\S]*?)```/g,
-    // With filename comment: ```language // filename\ncode```
-    /```(\w+)?\s*(?:\/\/\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g,
-    // With filename in different comment styles
-    /```(\w+)?\s*(?:#\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g,
-    // With filename after language
-    /```(\w+)\s+(.+\.[\w]+)\s*\n([\s\S]*?)```/g,
-    // Filename before code block
-    /(?:^|\n)(?:\/\/\s*)?(.+\.[\w]+)\s*\n```(\w+)?\s*\n([\s\S]*?)```/g
-  ];
+  // Simple and robust regex pattern for standard code blocks
+  const codeBlockPattern = /```(\w+)?\s*\n([\s\S]*?)```/g;
   
   let fileCounter = 1;
   const foundBlocks = new Set<string>(); // To avoid duplicates
   
-  // Also try to find inline filename references
-  const filenameReferences = content.match(/(?:file|filename):\s*([^\s\n]+\.\w+)/gi) || [];
+  // Look for filename references in the content before code blocks
+  const explicitFilenamePattern = /(?:^|\n)(?:filename|file):\s*([^\s\n]+\.\w+)/gi;
+  const filenameReferences: string[] = [];
+  let filenameMatch;
+  while ((filenameMatch = explicitFilenamePattern.exec(content)) !== null) {
+    filenameReferences.push(filenameMatch[1].trim());
+  }
   
-  // Try each pattern
-  for (const pattern of patterns) {
-    let match;
-    pattern.lastIndex = 0; // Reset regex state
-    while ((match = pattern.exec(content)) !== null) {
-      let language = match[1] || '';
-      let filename = match[2] || '';
-      let code = match[3] || match[2] || '';
-      
-      // Handle different capture groups based on pattern
-      if (pattern.source.includes('(.+\\.[\w]+)\\s*\\n```')) {
-        // Pattern with filename before code block
-        filename = match[1];
-        language = match[2] || '';
-        code = match[3] || '';
+  // Look for filenames mentioned in comments before code blocks
+  const commentFilenamePattern = /(?:^|\n)(?:\/\/|#|\/\*)\s*([^\s\n]+\.\w+)[\s\S]*?\n```/g;
+  let commentMatch;
+  while ((commentMatch = commentFilenamePattern.exec(content)) !== null) {
+    filenameReferences.push(commentMatch[1].trim());
+  }
+  
+  let referenceIndex = 0;
+  
+  // Parse standard code blocks
+  let match;
+  while ((match = codeBlockPattern.exec(content)) !== null) {
+    const language = match[1] || '';
+    let code = match[2] || '';
+    
+    // Clean up the code
+    code = code.trim();
+    
+    // Skip empty or very short code blocks
+    if (code.length < 5) continue;
+    
+    // Skip if we already found this exact code block
+    const blockKey = `${language}-${code.substring(0, 50)}`;
+    if (foundBlocks.has(blockKey)) continue;
+    foundBlocks.add(blockKey);
+    
+    // Skip if this looks like it's just text and not code
+    if (isJustText(code)) continue;
+    
+    // Determine filename
+    let filename = '';
+    
+    // 1. Try to use explicit filename references in order
+    if (referenceIndex < filenameReferences.length) {
+      filename = filenameReferences[referenceIndex];
+      referenceIndex++;
+    }
+    
+    // 2. Try to detect filename from code content
+    if (!filename) {
+      const detectedName = detectFilenameFromContent(code, language);
+      if (detectedName) {
+        filename = detectedName;
       }
-      
-      if (!code && match[4]) {
-        code = match[4];
-      }
-      
-      // Clean up the code
-      code = code.trim();
-      
-      // Skip if we already found this exact code block
-      const blockKey = `${language}-${code.substring(0, 100)}`;
-      if (foundBlocks.has(blockKey) || code.length === 0) continue;
-      foundBlocks.add(blockKey);
-      
-      // Try to detect filename from content or context
-      if (!filename) {
-        const detectedName = detectFilenameFromContent(code, language);
-        if (detectedName) {
-          filename = detectedName;
-        } else if (filenameReferences.length > 0) {
-          // Use referenced filenames if available
-          const refMatch = filenameReferences.shift();
-          if (refMatch) {
-            const parts = refMatch.split(':');
-            filename = parts[parts.length - 1].trim();
-          }
-        }
-      }
-      
-      // Fallback filename with better language detection
-      if (!filename) {
-        const detectedLang = language || detectLanguageFromCode(code);
-        filename = `file${fileCounter}.${getExtensionFromLanguage(detectedLang)}`;
-        fileCounter++;
-      }
-      
-      // Only add if we have actual content (more than just whitespace/comments)
-      if (code.length > 10 && !/^[\s\/\*#]*$/.test(code)) {
-        codeBlocks.push({
-          language: language || detectLanguageFromCode(code),
-          filename,
-          content: code,
-          path: filename
-        });
-      }
+    }
+    
+    // 3. Generate a meaningful filename based on language and content
+    if (!filename) {
+      const detectedLang = language || detectLanguageFromCode(code);
+      filename = generateMeaningfulFilename(code, detectedLang, fileCounter);
+      fileCounter++;
+    }
+    
+    // Ensure filename is valid and doesn't contain code content
+    filename = sanitizeFilename(filename);
+    
+    // Only add if we have valid content and filename
+    if (code.length > 0 && filename && !filename.includes('\n') && filename.length < 100) {
+      codeBlocks.push({
+        language: language || detectLanguageFromCode(code),
+        filename,
+        content: code,
+        path: filename
+      });
     }
   }
   
@@ -108,7 +106,7 @@ export function parseAIResponse(content: string): CodeBlock[] {
       .replace(/\s*```$/, '')
       .trim();
     
-    if (cleanedContent.length > 0) {
+    if (cleanedContent.length > 0 && !isJustText(cleanedContent)) {
       const detectedLang = detectLanguageFromCode(cleanedContent);
       const filename = `generated.${getExtensionFromLanguage(detectedLang)}`;
       
@@ -122,6 +120,94 @@ export function parseAIResponse(content: string): CodeBlock[] {
   }
   
   return codeBlocks;
+}
+
+// Helper function to check if content is just plain text and not code
+function isJustText(content: string): boolean {
+  // Check if content looks like natural language rather than code
+  const codeIndicators = [
+    /function\s+\w+/,
+    /class\s+\w+/,
+    /import\s+\w+/,
+    /def\s+\w+/,
+    /var\s+\w+/,
+    /const\s+\w+/,
+    /let\s+\w+/,
+    /<\w+[^>]*>/,
+    /\{\s*\w+/,
+    /if\s*\(/,
+    /for\s*\(/,
+    /while\s*\(/,
+    /return\s+/,
+    /console\./,
+    /print\s*\(/
+  ];
+  
+  const hasCodeIndicators = codeIndicators.some(pattern => pattern.test(content));
+  
+  // If it has clear code indicators, it's likely code
+  if (hasCodeIndicators) return false;
+  
+  // Check if it's mostly natural language
+  const words = content.split(/\s+/);
+  const longWords = words.filter(word => word.length > 4).length;
+  const totalWords = words.length;
+  
+  // If more than 60% are long words and no code indicators, it's probably text
+  return totalWords > 5 && (longWords / totalWords) > 0.6;
+}
+
+// Helper function to generate meaningful filenames
+function generateMeaningfulFilename(code: string, language: string, counter: number): string {
+  const detectedLang = language || detectLanguageFromCode(code);
+  
+  // Try to extract meaningful names from the code
+  const functionMatch = code.match(/function\s+(\w+)|def\s+(\w+)|class\s+(\w+)/);
+  if (functionMatch) {
+    const name = functionMatch[1] || functionMatch[2] || functionMatch[3];
+    return `${name}.${getExtensionFromLanguage(detectedLang)}`;
+  }
+  
+  // Check for specific file types
+  if (code.includes('<!DOCTYPE html>') || code.includes('<html')) {
+    return 'index.html';
+  }
+  
+  if (code.includes('package.json') || code.includes('"name"') && code.includes('"version"')) {
+    return 'package.json';
+  }
+  
+  if (code.includes('body {') || code.includes('@media')) {
+    return 'styles.css';
+  }
+  
+  // Default meaningful names
+  const defaultNames = {
+    'javascript': 'script',
+    'jsx': 'component',
+    'typescript': 'script',
+    'tsx': 'component',
+    'python': 'main',
+    'html': 'index',
+    'css': 'styles',
+    'json': 'data'
+  };
+  
+  const baseName = defaultNames[detectedLang] || 'file';
+  return `${baseName}${counter > 1 ? counter : ''}.${getExtensionFromLanguage(detectedLang)}`;
+}
+
+// Helper function to sanitize filenames
+function sanitizeFilename(filename: string): string {
+  if (!filename) return '';
+  
+  // Remove any newlines, excessive whitespace, or invalid characters
+  return filename
+    .replace(/[\n\r]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[<>:"|?*]/g, '')
+    .substring(0, 100) // Limit length
+    .trim();
 }
 
 export function detectProjectStructure(codeBlocks: CodeBlock[]): ProjectStructure {
