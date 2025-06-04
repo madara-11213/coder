@@ -58,14 +58,14 @@ export default function Home() {
   };
 
   // Set up swipe gestures for main content area
-  useSwipeGestures<HTMLDivElement>({
+  const swipeRef = useSwipeGestures<HTMLDivElement>({
     onSwipeLeft: () => navigateToView('next'),
     onSwipeRight: () => navigateToView('prev'),
     threshold: 100
   });
 
   // Set up pull-to-refresh for main content
-  usePullToRefresh<HTMLDivElement>(handleRefresh, 80);
+  const refreshRef = usePullToRefresh<HTMLDivElement>(handleRefresh, 80);
 
   const handleFileSelect = (filePath: string) => {
     setSelectedFile(filePath);
@@ -184,7 +184,13 @@ export default function Home() {
         </div>
         
         {/* Main Content Container */}
-        <div className="flex-1 overflow-hidden pt-12 sm:pt-0">
+        <div 
+          ref={(node) => {
+            if (swipeRef) swipeRef.current = node;
+            if (refreshRef) refreshRef.current = node;
+          }}
+          className="flex-1 overflow-hidden pt-12 sm:pt-0"
+        >
           {renderMainContent()}
         </div>
         
