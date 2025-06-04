@@ -8,12 +8,12 @@ import FileEditor from '@/components/FileEditor';
 import Settings from '@/components/Settings';
 import { useProjectStore } from '@/store/projectStore';
 import { useBranchStore } from '@/store/branchStore';
-import { useSwipeGestures, usePullToRefresh } from '@/hooks/useSwipeGestures';
+import { ArrowLeft, X } from 'lucide-react';
 
 export default function Home() {
   const [activeView, setActiveView] = useState<'main' | 'files' | 'settings'>('main');
   const [messageCount, setMessageCount] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showFileEditor, setShowFileEditor] = useState(false);
   const { selectedFile, setSelectedFile } = useProjectStore();
   const { getCurrentBranch, updateBranchFiles } = useBranchStore();
 
@@ -22,57 +22,22 @@ export default function Home() {
   
   useEffect(() => {
     if (currentBranch?.chatHistory) {
-      setMessageCount(Math.max(0, currentBranch.chatHistory.length - 1)); // Subtract 1 for welcome message
+      setMessageCount(Math.max(0, currentBranch.chatHistory.length - 1));
     }
   }, [currentBranch?.chatHistory]);
 
-  // View navigation order for swipe gestures
-  const viewOrder: ('main' | 'files' | 'settings')[] = ['main', 'files', 'settings'];
-  
-  const navigateToView = (direction: 'next' | 'prev') => {
-    const currentIndex = viewOrder.indexOf(activeView);
-    let newIndex: number;
-    
-    if (direction === 'next') {
-      newIndex = (currentIndex + 1) % viewOrder.length;
-    } else {
-      newIndex = (currentIndex - 1 + viewOrder.length) % viewOrder.length;
-    }
-    
-    setActiveView(viewOrder[newIndex]);
-    
-    // Add haptic feedback
-    if (navigator.vibrate) {
-      navigator.vibrate(25);
-    }
-  };
-
-  // Pull to refresh handler
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    
-    // Simulate refresh action - in real app this would refresh data
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsRefreshing(false);
-  };
-
-  // Set up swipe gestures for main content area
-  const swipeRef = useSwipeGestures<HTMLDivElement>({
-    onSwipeLeft: () => navigateToView('next'),
-    onSwipeRight: () => navigateToView('prev'),
-    threshold: 100
-  });
-
-  // Set up pull-to-refresh for main content
-  const refreshRef = usePullToRefresh<HTMLDivElement>(handleRefresh, 80);
-
   const handleFileSelect = (filePath: string) => {
     setSelectedFile(filePath);
-    setActiveView('files');
+    setShowFileEditor(true);
   };
 
   const handleFileClose = () => {
+    setSelectedFile(null);
+    setShowFileEditor(false);
+  };
+
+  const handleBackToFiles = () => {
+    setShowFileEditor(false);
     setSelectedFile(null);
   };
 
@@ -80,7 +45,6 @@ export default function Home() {
     const currentBranch = getCurrentBranch();
     if (!currentBranch) return;
 
-    // Update file content in the current branch
     interface FileNode {
       name: string;
       path: string;
@@ -109,35 +73,66 @@ export default function Home() {
     updateBranchFiles(currentBranch.id, updatedFileTree);
   };
 
-  const renderMainContent = () => {
-    const currentBranch = getCurrentBranch();
-    
-    // If a file is selected in files view, show appropriate layout based on screen size
-    if (activeView === 'files' && selectedFile) {
+  const renderContent = () => {
+    // Mobile file editor view
+    if (showFileEditor && selectedFile) {
       return (
-        <>
-          {/* Desktop: Side-by-side layout */}
-          <div className="hidden sm:flex flex-1 overflow-hidden">
-            <ProjectExplorer onFileSelect={handleFileSelect} currentBranch={currentBranch} />
-            <FileEditor 
-              filePath={selectedFile} 
-              onClose={handleFileClose} 
-              onSave={handleFileSave}
-            />
+        <div className="flex flex-col h-full">
+          {/* Mobile File Editor Header */}
+          <div className="sm:hidden bg-gray-800 border-b border-gray-700 flex items-center px-4 py-3 z-10">
+            <button
+              onClick={handleBackToFiles}
+              className="mr-3 p-2 -ml-2 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} className="text-gray-300" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-white font-medium truncate">
+                {selectedFile.split('/').pop()}
+              </h1>
+              <p className="text-gray-400 text-sm truncate">
+                {selectedFile}
+              </p>
+            </div>
+            <button
+              onClick={handleFileClose}
+              className="ml-3 p-2 -mr-2 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X size={20} className="text-gray-400" />
+            </button>
           </div>
           
-          {/* Mobile: Full-screen file editor only */}
-          <div className="sm:hidden flex-1 overflow-hidden">
+          {/* File Editor */}
+          <div className="flex-1 min-h-0">
             <FileEditor 
               filePath={selectedFile} 
               onClose={handleFileClose} 
               onSave={handleFileSave}
             />
           </div>
-        </>
+        </div>
       );
     }
-    
+
+    // Desktop: side-by-side when file is selected in files view
+    if (activeView === 'files' && selectedFile) {
+      return (
+        <div className="hidden sm:flex h-full">
+          <div className="w-80 border-r border-gray-700">
+            <ProjectExplorer onFileSelect={handleFileSelect} currentBranch={currentBranch} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <FileEditor 
+              filePath={selectedFile} 
+              onClose={handleFileClose} 
+              onSave={handleFileSave}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Regular views
     switch (activeView) {
       case 'main':
         return <MainSection />;
@@ -152,50 +147,20 @@ export default function Home() {
 
   return (
     <div className="flex h-screen w-screen bg-gradient-to-br from-slate-900 via-blue-900/20 to-slate-900">
-      {/* Desktop Sidebar - Hidden on mobile */}
+      {/* Desktop Sidebar */}
       <div className="hidden sm:block">
         <Sidebar activeView={activeView} onViewChange={setActiveView} />
       </div>
       
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col relative">
-        {/* Refresh Indicator */}
-        {isRefreshing && (
-          <div className="absolute top-0 left-0 right-0 z-50 bg-blue-600 text-white text-center py-3 animate-slide-down">
-            <div className="flex items-center justify-center gap-3">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              <span className="text-sm font-semibold">Refreshing...</span>
-            </div>
-          </div>
-        )}
-        
-        {/* View Transition Indicator - Mobile Only */}
-        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
-          <div className="flex gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-            {viewOrder.map((view) => (
-              <div
-                key={view}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  view === activeView ? 'w-6 bg-blue-500' : 'w-1.5 bg-gray-500'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-        
-        {/* Main Content Container */}
-        <div 
-          ref={(node) => {
-            if (swipeRef) swipeRef.current = node;
-            if (refreshRef) refreshRef.current = node;
-          }}
-          className="flex-1 overflow-hidden pt-8 sm:pt-0"
-        >
-          {renderMainContent()}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 h-full">
+        {/* Content Area */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {renderContent()}
         </div>
         
         {/* Mobile Bottom Navigation */}
-        <div className="sm:hidden bg-black/30 backdrop-blur-md border-t border-white/10">
+        <div className="sm:hidden bg-black/30 backdrop-blur-md border-t border-white/10 flex-shrink-0">
           <div className="flex justify-center p-4">
             <div className="flex bg-black/50 backdrop-blur-md rounded-full p-2 border border-white/10">
               {[
@@ -205,12 +170,18 @@ export default function Home() {
               ].map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveView(item.id)}
+                  onClick={() => {
+                    setActiveView(item.id);
+                    if (item.id !== 'files') {
+                      setShowFileEditor(false);
+                      setSelectedFile(null);
+                    }
+                  }}
                   className={`
                     relative flex flex-col items-center justify-center 
                     min-w-[64px] min-h-[48px] px-3 py-2 mx-1 rounded-full
                     transition-all duration-300 
-                    ${activeView === item.id 
+                    ${(activeView === item.id && !showFileEditor) || (item.id === 'files' && showFileEditor)
                       ? 'bg-blue-600 text-white shadow-lg' 
                       : 'text-gray-300 hover:text-white hover:bg-white/10'
                     }
