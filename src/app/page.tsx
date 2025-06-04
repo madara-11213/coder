@@ -170,8 +170,8 @@ export default function Home() {
         )}
         
         {/* View Transition Indicator - Mobile Only */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
-          <div className="flex gap-2 bg-black/50 backdrop-blur-md px-3 py-2 rounded-full border border-white/10">
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-40 sm:hidden">
+          <div className="flex gap-2 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
             {viewOrder.map((view) => (
               <div
                 key={view}
@@ -189,7 +189,7 @@ export default function Home() {
             if (swipeRef) swipeRef.current = node;
             if (refreshRef) refreshRef.current = node;
           }}
-          className="flex-1 overflow-hidden pt-12 sm:pt-0"
+          className="flex-1 overflow-hidden pt-8 sm:pt-0"
         >
           {renderMainContent()}
         </div>

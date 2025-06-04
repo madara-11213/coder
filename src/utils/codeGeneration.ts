@@ -15,7 +15,7 @@ export interface ProjectStructure {
 export function parseAIResponse(content: string): CodeBlock[] {
   const codeBlocks: CodeBlock[] = [];
   
-  // More flexible regex patterns to match different code block formats
+  // Enhanced regex patterns to match different code block formats
   const patterns = [
     // Standard format: ```language\ncode```
     /```(\w+)?\s*\n([\s\S]*?)```/g,
@@ -24,57 +24,100 @@ export function parseAIResponse(content: string): CodeBlock[] {
     // With filename in different comment styles
     /```(\w+)?\s*(?:#\s*(.+\.[\w]+))?\s*\n([\s\S]*?)```/g,
     // With filename after language
-    /```(\w+)\s+(.+\.[\w]+)\s*\n([\s\S]*?)```/g
+    /```(\w+)\s+(.+\.[\w]+)\s*\n([\s\S]*?)```/g,
+    // Filename before code block
+    /(?:^|\n)(?:\/\/\s*)?(.+\.[\w]+)\s*\n```(\w+)?\s*\n([\s\S]*?)```/g
   ];
   
   let fileCounter = 1;
   const foundBlocks = new Set<string>(); // To avoid duplicates
   
+  // Also try to find inline filename references
+  const filenameReferences = content.match(/(?:file|filename):\s*([^\s\n]+\.\w+)/gi) || [];
+  
   // Try each pattern
   for (const pattern of patterns) {
     let match;
+    pattern.lastIndex = 0; // Reset regex state
     while ((match = pattern.exec(content)) !== null) {
-      const language = match[1] || 'text';
-      let filename = match[2];
-      let code = match[3] || match[2]; // Handle different capture groups
+      let language = match[1] || '';
+      let filename = match[2] || '';
+      let code = match[3] || match[2] || '';
       
-      // If we captured filename in wrong place, fix it
-      if (code && !filename && match[4]) {
-        filename = code;
+      // Handle different capture groups based on pattern
+      if (pattern.source.includes('(.+\\.[\w]+)\\s*\\n```')) {
+        // Pattern with filename before code block
+        filename = match[1];
+        language = match[2] || '';
+        code = match[3] || '';
+      }
+      
+      if (!code && match[4]) {
         code = match[4];
       }
       
-      if (!code) code = match[2] || '';
+      // Clean up the code
       code = code.trim();
       
       // Skip if we already found this exact code block
       const blockKey = `${language}-${code.substring(0, 100)}`;
-      if (foundBlocks.has(blockKey)) continue;
+      if (foundBlocks.has(blockKey) || code.length === 0) continue;
       foundBlocks.add(blockKey);
       
-      // Try to detect filename from content
+      // Try to detect filename from content or context
       if (!filename) {
         const detectedName = detectFilenameFromContent(code, language);
         if (detectedName) {
           filename = detectedName;
+        } else if (filenameReferences.length > 0) {
+          // Use referenced filenames if available
+          const refMatch = filenameReferences.shift();
+          if (refMatch) {
+            const parts = refMatch.split(':');
+            filename = parts[parts.length - 1].trim();
+          }
         }
       }
       
-      // Fallback filename
+      // Fallback filename with better language detection
       if (!filename) {
-        filename = `file${fileCounter}.${getExtensionFromLanguage(language)}`;
+        const detectedLang = language || detectLanguageFromCode(code);
+        filename = `file${fileCounter}.${getExtensionFromLanguage(detectedLang)}`;
         fileCounter++;
       }
       
-      // Only add if we have actual content
-      if (code.length > 0) {
+      // Only add if we have actual content (more than just whitespace/comments)
+      if (code.length > 10 && !/^[\s\/\*#]*$/.test(code)) {
         codeBlocks.push({
-          language,
+          language: language || detectLanguageFromCode(code),
           filename,
           content: code,
           path: filename
         });
       }
+    }
+  }
+  
+  // If no code blocks found, try to create a simple file from the entire content
+  if (codeBlocks.length === 0 && content.trim().length > 0) {
+    // Remove any obvious AI response formatting
+    const cleanedContent = content
+      .replace(/^Here'?s?\s+(?:the|your|a)\s+.*?:\s*/i, '')
+      .replace(/^I'?(?:ve|ll)\s+.*?:\s*/i, '')
+      .replace(/^```\s*/, '')
+      .replace(/\s*```$/, '')
+      .trim();
+    
+    if (cleanedContent.length > 0) {
+      const detectedLang = detectLanguageFromCode(cleanedContent);
+      const filename = `generated.${getExtensionFromLanguage(detectedLang)}`;
+      
+      codeBlocks.push({
+        language: detectedLang,
+        filename,
+        content: cleanedContent,
+        path: filename
+      });
     }
   }
   
@@ -187,6 +230,36 @@ function detectFilenameFromContent(content: string, language: string): string | 
   return null;
 }
 
+function detectLanguageFromCode(code: string): string {
+  // Simple language detection based on code patterns
+  if (code.includes('<!DOCTYPE html>') || code.includes('<html') || /<\w+.*>/.test(code)) {
+    return 'html';
+  }
+  if (code.includes('import React') || code.includes('export default') || code.includes('useState')) {
+    return 'jsx';
+  }
+  if (code.includes('function') && (code.includes('const ') || code.includes('let ') || code.includes('var '))) {
+    return 'javascript';
+  }
+  if (code.includes('def ') || code.includes('import ') || code.includes('if __name__')) {
+    return 'python';
+  }
+  if (code.includes('body {') || code.includes('@media') || /\.\w+\s*\{/.test(code)) {
+    return 'css';
+  }
+  if (code.includes('"name":') || code.includes('"version":')) {
+    return 'json';
+  }
+  if (code.includes('public class') || code.includes('public static void main')) {
+    return 'java';
+  }
+  if (code.includes('#include') || code.includes('int main')) {
+    return 'c';
+  }
+  
+  return 'text';
+}
+
 function getExtensionFromLanguage(language: string): string {
   const extensionMap: { [key: string]: string } = {
     'javascript': 'js',
@@ -214,7 +287,8 @@ function getExtensionFromLanguage(language: string): string {
     'bash': 'sh',
     'sql': 'sql',
     'yaml': 'yml',
-    'xml': 'xml'
+    'xml': 'xml',
+    'text': 'txt'
   };
   
   return extensionMap[language.toLowerCase()] || 'txt';
