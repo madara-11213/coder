@@ -130,25 +130,102 @@ What would you like me to help you build or fix today?`,
     return 'generation';
   };
 
-  // Use SearchGPT to get latest information
+  // Pollinations API configuration
+  const POLLINATIONS_API_URL = 'https://text.pollinations.ai/openai';
+  const POLLINATIONS_TOKEN = process.env.NEXT_PUBLIC_POLLINATIONS_TOKEN || 'L0jejdsYQOrz1lFp';
+  const POLLINATIONS_REFERRER = process.env.NEXT_PUBLIC_POLLINATIONS_REFERRER || 'L0jejdsYQOrz1lFp';
+
+  // Real SearchGPT web search function
   const searchForLatestInfo = async (query: string): Promise<string> => {
     try {
-      const searchResponse = await fetch('/api/search', {
+      const searchPayload = {
+        model: 'searchgpt',
+        messages: [
+          {
+            role: 'system',
+            content: `its ${new Date().toISOString()} today! always use web tool before replying and perform websearch. Convert the UTC time accordingly to user's timezone if provided`
+          },
+          {
+            role: 'user', 
+            content: `Perform search for: latest ${query} best practices 2025`
+          }
+        ],
+        temperature: 1.0,
+        top_p: 1.0,
+        seed: Math.floor(Math.random() * 1000000000).toString(),
+        private: true,
+        nofeed: true,
+        token: POLLINATIONS_TOKEN,
+        referrer: POLLINATIONS_REFERRER
+      };
+
+      const response = await fetch(POLLINATIONS_API_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        headers: {
+          'Content-Type': 'application/json',
+          'token': POLLINATIONS_TOKEN,
+          'referrer': POLLINATIONS_REFERRER
+        },
+        body: JSON.stringify(searchPayload)
       });
-      
-      if (searchResponse.ok) {
-        const data = await searchResponse.json();
-        return data.results || '';
+
+      if (response.ok) {
+        const data = await response.text();
+        return data;
+      } else {
+        throw new Error(`Search failed: ${response.status}`);
       }
     } catch (error) {
-      console.log('SearchGPT not available, using fallback');
+      console.error('SearchGPT error:', error);
+      return `Search unavailable. Using built-in knowledge for ${query}.`;
     }
-    
-    // Fallback: simulate search results
-    return `Latest information about ${query}: Current best practices and up-to-date examples found.`;
+  };
+
+  // Generate code using user's selected model with search results
+  const generateCodeWithAI = async (userRequest: string, searchResults: string, selectedModel: string = 'openai'): Promise<string> => {
+    try {
+      const generatePayload = {
+        model: selectedModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert developer. Generate clean, production-ready code only. Return only the code without explanations, comments, or markdown formatting. Focus on modern 2025 best practices and current standards.'
+          },
+          {
+            role: 'user',
+            content: `${userRequest}\n\nLatest information from web search:\n${searchResults}\n\nGenerate only the code, no explanations.`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 128000,
+        seed: Math.floor(Math.random() * 1000000000),
+        token: POLLINATIONS_TOKEN,
+        referrer: POLLINATIONS_REFERRER,
+        safe: true,
+        private: true
+      };
+
+      const response = await fetch(POLLINATIONS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'token': POLLINATIONS_TOKEN,
+          'referrer': POLLINATIONS_REFERRER
+        },
+        body: JSON.stringify(generatePayload)
+      });
+
+      if (response.ok) {
+        const generatedCode = await response.text();
+        return generatedCode;
+      } else {
+        throw new Error(`Generation failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Code generation error:', error);
+      return `// Error generating code: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  };
   };
 
   // Execute code and check for errors
@@ -157,7 +234,14 @@ What would you like me to help you build or fix today?`,
       // For demonstration, we'll simulate code execution
       // In a real implementation, this would use a sandboxed environment
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // First, search for latest information
+    const searchResults = await searchForLatestInfo(input);
+    
+    // Generate code using AI with search results
+    const generatedCode = await generateCodeWithAI(input, searchResults, 'openai');
+    
+    // Create the actual file with generated code
+    await createRealFileFromGeneration(input, generatedCode);
       
       // Simulate different outcomes based on code content
       if (code.includes('syntax error') || code.includes('undefined')) {
@@ -260,8 +344,6 @@ What would you like me to help you build or fix today?`,
       } else if (intent === 'editing') {
         await handleEditingRequest(currentInput);
       }
-        }];
-      });
 
     } catch (error) {
       const errorStatus: StatusDetail = {
@@ -333,8 +415,14 @@ What would you like me to help you build or fix today?`,
       }];
     });
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    await generateCodeFromInput(input);
+    // First, search for latest information
+    const searchResults = await searchForLatestInfo(input);
+    
+    // Generate code using AI with search results
+    const generatedCode = await generateCodeWithAI(input, searchResults, 'openai');
+    
+    // Create the actual file with generated code
+    await createRealFileFromGeneration(input, generatedCode);
     
     const runningStatus: StatusDetail = {
       id: `status-${Date.now()}-running`,
@@ -424,7 +512,14 @@ What would you like me to help you build or fix today?`,
       }];
     });
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // First, search for latest information
+    const searchResults = await searchForLatestInfo(input);
+    
+    // Generate code using AI with search results
+    const generatedCode = await generateCodeWithAI(input, searchResults, 'openai');
+    
+    // Create the actual file with generated code
+    await createRealFileFromGeneration(input, generatedCode);
 
     const testingStatus: StatusDetail = {
       id: `status-${Date.now()}-testing`,
@@ -469,106 +564,72 @@ What would you like me to help you build or fix today?`,
     });
   };
 
-  const generateCodeFromInput = async (input: string) => {
+  const createRealFileFromGeneration = async (userRequest: string, generatedCode: string) => {
     if (!currentBranch) return;
 
-    if (input.toLowerCase().includes('calculator')) {
-      const calculatorCode = `import React, { useState } from 'react';
-
-const Calculator = () => {
-  const [display, setDisplay] = useState('0');
-  const [operation, setOperation] = useState('');
-  const [previousValue, setPreviousValue] = useState('');
-  
-  const handleNumber = (num: string) => {
-    setDisplay(display === '0' ? num : display + num);
-  };
-  
-  const handleOperation = (op: string) => {
-    setPreviousValue(display);
-    setOperation(op);
-    setDisplay('0');
-  };
-  
-  const calculate = () => {
-    const prev = parseFloat(previousValue);
-    const current = parseFloat(display);
+    // Parse the generated code to extract components and determine file names
+    let fileName = 'GeneratedComponent.tsx';
+    let filePath = 'src/components/GeneratedComponent.tsx';
     
-    let result = 0;
-    switch (operation) {
-      case '+':
-        result = prev + current;
-        break;
-      case '-':
-        result = prev - current;
-        break;
-      case '*':
-        result = prev * current;
-        break;
-      case '/':
-        result = prev / current;
-        break;
-      default:
-        return;
+    // Determine file name based on user request
+    if (userRequest.toLowerCase().includes('calculator')) {
+      fileName = 'Calculator.tsx';
+      filePath = 'src/components/Calculator.tsx';
+    } else if (userRequest.toLowerCase().includes('todo')) {
+      fileName = 'TodoApp.tsx';
+      filePath = 'src/components/TodoApp.tsx';
+    } else if (userRequest.toLowerCase().includes('button')) {
+      fileName = 'Button.tsx';
+      filePath = 'src/components/Button.tsx';
+    } else if (userRequest.toLowerCase().includes('form')) {
+      fileName = 'Form.tsx';
+      filePath = 'src/components/Form.tsx';
+    } else if (userRequest.toLowerCase().includes('modal')) {
+      fileName = 'Modal.tsx';
+      filePath = 'src/components/Modal.tsx';
+    } else if (userRequest.toLowerCase().includes('card')) {
+      fileName = 'Card.tsx';
+      filePath = 'src/components/Card.tsx';
+    } else if (userRequest.toLowerCase().includes('navbar') || userRequest.toLowerCase().includes('header')) {
+      fileName = 'Navbar.tsx';
+      filePath = 'src/components/Navbar.tsx';
+    } else if (userRequest.toLowerCase().includes('footer')) {
+      fileName = 'Footer.tsx';
+      filePath = 'src/components/Footer.tsx';
+    } else if (userRequest.toLowerCase().includes('sidebar')) {
+      fileName = 'Sidebar.tsx';
+      filePath = 'src/components/Sidebar.tsx';
+    } else if (userRequest.toLowerCase().includes('html')) {
+      fileName = 'index.html';
+      filePath = 'public/index.html';
     }
+
+    // Clean the generated code (remove markdown, explanations, etc.)
+    let cleanCode = generatedCode;
     
-    setDisplay(result.toString());
-    setOperation('');
-    setPreviousValue('');
-  };
+    // Remove markdown code blocks
+    cleanCode = cleanCode.replace(/```[a-zA-Z]*\n/g, '');
+    cleanCode = cleanCode.replace(/```/g, '');
+    
+    // Remove any AI explanations at the beginning or end
+    cleanCode = cleanCode.replace(/^[^<>]*?(?=import|export|const|function|class|<!DOCTYPE)/s, '');
+    cleanCode = cleanCode.replace(/\n\n[^<>]*$/, '');
+    
+    // Trim whitespace
+    cleanCode = cleanCode.trim();
 
-  return (
-    <div className="calculator bg-gray-800 p-6 rounded-lg max-w-xs mx-auto">
-      <div className="display bg-gray-900 p-4 rounded mb-4 text-right text-white text-2xl">
-        {display}
-      </div>
-      <div className="buttons grid grid-cols-4 gap-2">
-        {[
-          'C', '±', '%', '÷',
-          '7', '8', '9', '×',
-          '4', '5', '6', '-',
-          '1', '2', '3', '+',
-          '0', '.', '=', '='
-        ].map((btn, index) => (
-          <button
-            key={index}
-            onClick={() => {
-              if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(btn)) {
-                handleNumber(btn);
-              } else if (['+', '-', '×', '÷'].includes(btn)) {
-                handleOperation(btn === '×' ? '*' : btn === '÷' ? '/' : btn);
-              } else if (btn === '=') {
-                calculate();
-              } else if (btn === 'C') {
-                setDisplay('0');
-                setOperation('');
-                setPreviousValue('');
-              }
-            }}
-            className="bg-gray-600 hover:bg-gray-500 text-white p-3 rounded transition-colors"
-          >
-            {btn}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
+    // Create the file in current branch
+    const newFile = {
+      name: fileName,
+      type: 'file' as const,
+      path: filePath,
+      content: cleanCode,
+      isNew: true,
+      lastModified: new Date()
+    };
 
-export default Calculator;`;
-
-      const newFile = {
-        name: 'Calculator.tsx',
-        type: 'file' as const,
-        path: 'src/components/Calculator.tsx',
-        content: calculatorCode,
-        isNew: true,
-        lastModified: new Date()
-      };
-
-      const updatedFileTree = [...(currentBranch.fileTree || []), newFile];
-      updateBranchFiles(currentBranch.id, updatedFileTree);
-    }
+    const updatedFileTree = [...(currentBranch.fileTree || []), newFile];
+    updateBranchFiles(currentBranch.id, updatedFileTree);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
