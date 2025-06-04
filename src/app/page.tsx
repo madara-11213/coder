@@ -118,7 +118,7 @@ export default function Home() {
     if (activeView === 'files' && selectedFile) {
       return (
         <div className="hidden sm:flex h-full">
-          <div className="w-80 border-r border-gray-700">
+          <div className="w-64 lg:w-80 border-r border-gray-700 flex-shrink-0">
             <ProjectExplorer onFileSelect={handleFileSelect} currentBranch={currentBranch} />
           </div>
           <div className="flex-1 min-w-0">

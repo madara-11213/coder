@@ -7,16 +7,14 @@ import BranchSelector from './BranchSelector';
 import { 
   Folder, 
   File, 
-  Plus, 
   FolderPlus, 
   Upload,
   ChevronRight,
   ChevronDown,
   FileText,
   Code,
-  Image,
+  Image as ImageIcon,
   FilePlus,
-  MoreHorizontal,
   Search
 } from 'lucide-react';
 
@@ -176,7 +174,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       case 'gif':
       case 'svg':
       case 'webp':
-        return <Image size={16} className="text-purple-400" />;
+        return <ImageIcon size={16} className="text-purple-400" />;
       default:
         return <File size={16} className="text-gray-400" />;
     }
@@ -257,7 +255,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
   const filteredFiles = filterFiles(fileTree, searchQuery);
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 sm:w-80 sm:border-r border-gray-700">
+    <div className="flex flex-col h-full bg-gray-800">
       {/* Header */}
       <div className="flex-shrink-0 p-4 border-b border-gray-700">
         <div className="flex items-center justify-between mb-3">
@@ -344,7 +342,7 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
             {searchQuery ? (
               <div>
                 <Search size={48} className="mx-auto mb-2 opacity-50" />
-                <p>No files found for "{searchQuery}"</p>
+                <p>No files found for &quot;{searchQuery}&quot;</p>
               </div>
             ) : (
               <div>
