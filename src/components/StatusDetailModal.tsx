@@ -266,14 +266,14 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+        className="fixed inset-0 bg-black bg-opacity-90 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
         onClick={onClose}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0, y: 100 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 100 }}
-          className={`bg-gray-900 border border-gray-700 shadow-2xl flex flex-col ${
+          className={`bg-black border border-gray-800 shadow-2xl flex flex-col ${
             isFullscreen 
               ? 'w-full h-full rounded-none' 
               : 'w-full h-[90vh] sm:h-auto sm:max-h-[85vh] sm:max-w-4xl sm:rounded-xl rounded-t-2xl sm:mx-4'
@@ -281,7 +281,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl">
+          <div className="bg-black border-b border-gray-800 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {getStatusIcon()}
               <div className="flex-1 min-w-0">
@@ -329,7 +329,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
           </div>
 
           {/* Tabs */}
-          <div className="bg-gray-800 border-b border-gray-700 px-2 sm:px-6 flex overflow-x-auto custom-scrollbar">
+          <div className="bg-black border-b border-gray-800 px-2 sm:px-6 flex overflow-x-auto custom-scrollbar">
             {[
               { id: 'overview' as const, label: 'Overview', icon: CheckCircle },
               { id: 'terminal' as const, label: 'Terminal', icon: Terminal },

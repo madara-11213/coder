@@ -227,20 +227,55 @@ What would you like me to help you build or fix today?`,
     }
   };
 
+  // Create real files from AI generation
+  const createRealFileFromGeneration = async (userRequest: string, generatedCode: string): Promise<void> => {
+    try {
+      // Parse the generated code to extract files
+      const codeBlocks = parseAIResponse(generatedCode);
+      
+      if (codeBlocks.length === 0) {
+        // If no code blocks found, create a simple file based on the request
+        const fileExtension = userRequest.toLowerCase().includes('html') ? 'html' :
+                             userRequest.toLowerCase().includes('python') ? 'py' :
+                             userRequest.toLowerCase().includes('css') ? 'css' : 'js';
+        
+        codeBlocks.push({
+          language: fileExtension,
+          filename: `generated.${fileExtension}`,
+          content: generatedCode,
+          path: `generated.${fileExtension}`
+        });
+      }
+
+      // Add files to current branch
+      if (currentBranch) {
+        const newFileTree = [...(currentBranch.fileTree || [])];
+        
+        codeBlocks.forEach(block => {
+          const newFile = {
+            name: block.filename,
+            path: block.path,
+            type: 'file' as const,
+            content: block.content,
+            lastModified: new Date(),
+            isNew: true
+          };
+          newFileTree.push(newFile);
+        });
+        
+        updateBranchFiles(currentBranch.id, newFileTree);
+      }
+    } catch (error) {
+      console.error('Error creating files from generation:', error);
+      throw error;
+    }
+  };
+
   // Execute code and check for errors
   const executeCode = async (language: string, code: string, filename: string): Promise<ExecutionResult> => {
     try {
       // For demonstration, we'll simulate code execution
       // In a real implementation, this would use a sandboxed environment
-      
-      // First, search for latest information
-    const searchResults = await searchForLatestInfo(input);
-    
-    // Generate code using AI with search results
-    const generatedCode = await generateCodeWithAI(input, searchResults, 'openai');
-    
-    // Create the actual file with generated code
-    await createRealFileFromGeneration(input, generatedCode);
       
       // Simulate different outcomes based on code content
       if (code.includes('syntax error') || code.includes('undefined')) {

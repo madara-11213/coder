@@ -16,9 +16,9 @@ export const metadata: Metadata = {
   title: "Coder - AI Web IDE",
   description: "The most advanced mobile-first AI-powered web IDE in 2025. Code anywhere with cutting-edge touch interactions.",
   keywords: ["AI", "IDE", "mobile-first", "code editor", "web development", "PWA"],
-  authors: [{ name: "Coder Team" }],
-  creator: "Coder",
-  publisher: "Coder",
+  authors: [{ name: "_dr_misterio_" }],
+  creator: "_dr_misterio_",
+  publisher: "_dr_misterio_",
   formatDetection: {
     email: false,
     address: false,
