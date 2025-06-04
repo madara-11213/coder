@@ -9,9 +9,9 @@
 
 **Your intelligent coding companion with real-time web search capabilities**
 
-*Built by `_dr_misterio_`*
+*Built by `tachiba11212`*
 
-[🚀 Live Demo](#) • [📖 Documentation](#features) • [🐛 Issues](https://github.com/tachiba-11211/Coder/issues) • [💡 Features](#features)
+[🚀 Live Demo](#) • [📖 Documentation](#features) • [🐛 Issues](https://github.com/tachiba11212/Web/issues) • [💡 Features](#features)
 
 </div>
 
@@ -55,8 +55,8 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/tachiba-11211/Coder.git
-   cd Coder
+   git clone https://github.com/tachiba11212/Web.git
+   cd Web
    ```
 
 2. **Install dependencies**
@@ -181,10 +181,16 @@ src/
 │   ├── ProjectExplorer.tsx # File tree
 │   ├── FileEditor.tsx  # Code editor
 │   ├── BranchSelector.tsx # Git-like branches
-│   └── Settings.tsx    # Configuration
+│   ├── Settings.tsx    # Configuration
+│   ├── Sidebar.tsx     # Navigation sidebar
+│   ├── StatusDetailModal.tsx # Status details
+│   ├── ImageProcessor.tsx # Image processing
+│   └── MultiImageChat.tsx # Multi-image chat
 ├── store/             # State management
 │   ├── projectStore.ts # Project and file state
 │   └── branchStore.ts  # Branch and memory state
+├── hooks/             # Custom React hooks
+│   └── useSwipeGestures.ts # Touch gestures
 └── utils/             # Utility functions
     └── codeGeneration.ts # AI response parsing
 ```
@@ -222,7 +228,7 @@ We welcome contributions! Here's how you can help:
 5. **🔄 Open a Pull Request**
 
 ### 🐛 Bug Reports
-Found a bug? [Open an issue](https://github.com/tachiba-11211/Coder/issues) with:
+Found a bug? [Open an issue](https://github.com/tachiba11212/Web/issues) with:
 - Clear description
 - Steps to reproduce
 - Expected vs actual behavior
@@ -232,7 +238,18 @@ Found a bug? [Open an issue](https://github.com/tachiba-11211/Coder/issues) with
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under a Custom Restrictive License that allows:
+- ✅ Personal local usage and study
+- ✅ Submitting pull requests and contributions
+- ✅ Educational purposes
+
+But **strictly prohibits**:
+- ❌ Modification or redistribution
+- ❌ Commercial use without permission  
+- ❌ Public hosting or providing as a service
+- ❌ Creating derivative works
+
+See the [LICENSE](LICENSE) file for complete terms and conditions.
 
 ---
 
@@ -247,13 +264,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Built with ❤️ by `_dr_misterio_`**
+**Built with ❤️ by `tachiba11212`**
 
 *Making coding more intelligent, one conversation at a time*
 
-[![GitHub stars](https://img.shields.io/github/stars/tachiba-11211/Coder?style=social)](https://github.com/tachiba-11211/Coder/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/tachiba-11211/Coder?style=social)](https://github.com/tachiba-11211/Coder/network/members)
+[![GitHub stars](https://img.shields.io/github/stars/tachiba11212/Web?style=social)](https://github.com/tachiba11212/Web/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/tachiba11212/Web?style=social)](https://github.com/tachiba11212/Web/network/members)
 
-[⭐ Star this repo](https://github.com/tachiba-11211/Coder) • [🐛 Report Bug](https://github.com/tachiba-11211/Coder/issues) • [💡 Request Feature](https://github.com/tachiba-11211/Coder/issues)
+[⭐ Star this repo](https://github.com/tachiba11212/Web) • [🐛 Report Bug](https://github.com/tachiba11212/Web/issues) • [💡 Request Feature](https://github.com/tachiba11212/Web/issues)
 
 </div>
