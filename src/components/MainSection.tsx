@@ -226,7 +226,6 @@ What would you like me to help you build or fix today?`,
       return `// Error generating code: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
   };
-  };
 
   // Execute code and check for errors
   const executeCode = async (language: string, code: string, filename: string): Promise<ExecutionResult> => {

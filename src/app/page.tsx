@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
-import ProjectExplorer from '@/components/ProjectExplorerNew';
-import MainSection from '@/components/MainSectionNew';
+import ProjectExplorer from '@/components/ProjectExplorer';
+import MainSection from '@/components/MainSection';
 import FileEditor from '@/components/FileEditor';
 import Settings from '@/components/Settings';
 import { useProjectStore } from '@/store/projectStore';
