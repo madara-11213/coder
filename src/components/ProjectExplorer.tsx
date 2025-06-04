@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useProjectStore, initializeSampleProjects } from '@/store/projectStore';
 import { useBranchStore, Branch } from '@/store/branchStore';
+import BranchSelector from './BranchSelector';
 import { 
   Folder, 
   File, 
@@ -704,6 +705,11 @@ export default function ProjectExplorer({ onFileSelect, currentBranch }: Project
       {/* Header */}
       <div className="p-4 border-b border-gray-700">
         <h2 className="text-lg font-semibold mb-3">Projects</h2>
+        
+        {/* Branch Selector */}
+        <div className="mb-3">
+          <BranchSelector />
+        </div>
         
         {/* Action Buttons */}
         <div className="flex gap-2 flex-wrap">
