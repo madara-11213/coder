@@ -201,11 +201,11 @@ What would you like me to help you build or fix today?`,
         messages: [
           {
             role: 'system',
-            content: 'You are an expert developer. Generate clean, production-ready code only. Return only the code without explanations, comments, or markdown formatting. Focus on modern 2025 best practices and current standards.'
+            content: 'You are an expert developer. Generate clean, complete, production-ready code. Always provide full, working implementations with proper structure. Use proper code formatting with markdown code blocks (```language). Include all necessary files for a complete project. Focus on modern 2025 best practices.'
           },
           {
             role: 'user',
-            content: `${userRequest}\n\nLatest information from web search:\n${searchResults}\n\nGenerate only the code, no explanations.`
+            content: `${userRequest}\n\nLatest information from web search:\n${searchResults}\n\nGenerate complete, working code with proper file structure. Use markdown code blocks with filename comments.`
           }
         ],
         temperature: 0.7,
@@ -229,25 +229,29 @@ What would you like me to help you build or fix today?`,
 
       if (response.ok) {
         const responseText = await response.text();
+        console.log('AI Response:', responseText); // Debug logging
         
-        try {
-          // Try to parse as JSON first
-          const jsonResponse = JSON.parse(responseText);
-          if (jsonResponse.choices?.[0]?.message?.content) {
-            return jsonResponse.choices[0].message.content;
+        // Check if response is JSON
+        if (responseText.trim().startsWith('{')) {
+          try {
+            const jsonResponse = JSON.parse(responseText);
+            if (jsonResponse.choices?.[0]?.message?.content) {
+              return jsonResponse.choices[0].message.content;
+            }
+          } catch (e) {
+            console.warn('Failed to parse JSON response:', e);
           }
-        } catch {
-          // If not JSON, use raw text
-          console.warn('AI response is not JSON, using raw text');
         }
         
+        // Use raw text response
         return responseText;
       } else {
-        throw new Error(`Generation failed: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Generation failed: ${response.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('Code generation error:', error);
-      return `// Error generating code: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      return `// Error generating code: ${error instanceof Error ? error.message : 'Unknown error'}\n// Please try again with a more specific request.`;
     }
   };
 
@@ -431,22 +435,77 @@ What would you like me to help you build or fix today?`,
 
 
   const handleExplanationRequest = async (input: string) => {
-    const completedStatus: StatusDetail = {
-      id: `status-${Date.now()}-completed`,
-      type: 'completed',
-      title: '✅ Analysis complete',
-      description: 'Explanation ready based on your project context',
-      progress: 100
-    };
+    // For explanations, provide direct responses without status messages
+    try {
+      const explanationPayload = {
+        model: 'openai',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful coding assistant. Provide clear, detailed explanations in a conversational tone. Use markdown formatting for better readability. Focus on being educational and helpful.'
+          },
+          {
+            role: 'user',
+            content: `${input}\n\nContext: Current branch is "${currentBranch?.name || 'main'}". Please provide a detailed explanation based on the available code context.`
+          }
+        ],
+        temperature: 0.8,
+        max_tokens: 4000,
+        seed: Math.floor(Math.random() * 1000000000),
+        token: POLLINATIONS_TOKEN,
+        referrer: POLLINATIONS_REFERRER,
+        safe: true,
+        private: true
+      };
 
-    setMessages(prev => [...prev, {
-      id: `${Date.now()}-completed`,
-      type: 'status',
-      content: '✅ Analysis complete - Click for detailed explanation',
-      timestamp: new Date(),
-      status: completedStatus,
-      actionType: 'explanation'
-    }]);
+      const response = await fetch(POLLINATIONS_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'token': POLLINATIONS_TOKEN,
+          'referrer': POLLINATIONS_REFERRER
+        },
+        body: JSON.stringify(explanationPayload)
+      });
+
+      if (response.ok) {
+        const responseText = await response.text();
+        let explanation = responseText;
+        
+        // Parse JSON if needed
+        if (responseText.trim().startsWith('{')) {
+          try {
+            const jsonResponse = JSON.parse(responseText);
+            if (jsonResponse.choices?.[0]?.message?.content) {
+              explanation = jsonResponse.choices[0].message.content;
+            }
+          } catch (e) {
+            console.warn('Failed to parse explanation JSON:', e);
+          }
+        }
+
+        // Add the AI response directly without status messages
+        const aiMessage: Message = {
+          id: `${Date.now()}-ai-explanation`,
+          type: 'ai',
+          content: explanation,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        throw new Error(`Explanation failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Explanation error:', error);
+      const errorMessage: Message = {
+        id: `${Date.now()}-error`,
+        type: 'ai',
+        content: `I apologize, but I encountered an error while generating the explanation: ${error instanceof Error ? error.message : 'Unknown error'}. Please try rephrasing your question.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const handleGenerationRequest = async (input: string) => {
