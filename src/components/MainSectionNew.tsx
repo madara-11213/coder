@@ -7,6 +7,8 @@ import { Send, Bot, User, Settings, Loader2, AlertCircle, Code, Search, Play, Ch
 import ReactMarkdown from 'react-markdown';
 import { useBranchStore } from '@/store/branchStore';
 import StatusDetailModal from './StatusDetailModal';
+import { useProjectStore } from '@/store/projectStore';
+import { parseAIResponse } from '@/utils/codeGeneration';
 
 // Import the base Message type from store and extend it
 import type { Branch } from '@/store/branchStore';
@@ -33,7 +35,8 @@ interface ExecutionResult {
 }
 
 export default function MainSection() {
-  const { getCurrentBranch, updateBranchChat } = useBranchStore();
+  const { getCurrentBranch, updateBranchChat, updateBranchFiles, createBranch } = useBranchStore();
+  const { generateProjectFromAI, updateFileContent, addProject } = useProjectStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -249,28 +252,14 @@ What would you like me to help you build or fix today?`,
       };
       setMessages(prev => [...prev, analyzingMessage]);
 
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create completion status
-      const completedStatus: StatusDetail = {
-        id: `status-${Date.now()}-completed`,
-        type: 'completed',
-        title: `✅ ${intent === 'generation' ? 'Code generated' : intent === 'editing' ? 'Files updated' : 'Analysis complete'}`,
-        description: `Successfully completed your ${intent} request`,
-        progress: 100
-      };
-
-      // Update to completed status
-      setMessages(prev => {
-        const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
-        return [...withoutAnalyzing, {
-          id: `${Date.now()}-completed`,
-          type: 'status',
-          content: `✅ ${intent === 'generation' ? 'Code generated successfully' : intent === 'editing' ? 'Files updated successfully' : 'Analysis completed'}`,
-          timestamp: new Date(),
-          status: completedStatus,
-          actionType: intent
+      // Process based on intent
+      if (intent === 'explanation') {
+        await handleExplanationRequest(currentInput);
+      } else if (intent === 'generation') {
+        await handleGenerationRequest(currentInput);
+      } else if (intent === 'editing') {
+        await handleEditingRequest(currentInput);
+      }
         }];
       });
 
@@ -298,6 +287,288 @@ What would you like me to help you build or fix today?`,
   const handleStatusClick = (status: StatusDetail) => {
     setSelectedStatusModal(status);
     setIsStatusModalOpen(true);
+  };
+
+
+  const handleExplanationRequest = async (input: string) => {
+    const completedStatus: StatusDetail = {
+      id: `status-${Date.now()}-completed`,
+      type: 'completed',
+      title: '✅ Analysis complete',
+      description: 'Explanation ready based on your project context',
+      progress: 100
+    };
+
+    setMessages(prev => {
+      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
+      return [...withoutAnalyzing, {
+        id: `${Date.now()}-completed`,
+        type: 'status',
+        content: '✅ Analysis complete - Click for detailed explanation',
+        timestamp: new Date(),
+        status: completedStatus,
+        actionType: 'explanation'
+      }];
+    });
+  };
+
+  const handleGenerationRequest = async (input: string) => {
+    const generatingStatus: StatusDetail = {
+      id: `status-${Date.now()}-generating`,
+      type: 'generating',
+      title: '⚡ Generating code',
+      description: 'Creating files based on your requirements',
+      progress: 50
+    };
+    
+    setMessages(prev => {
+      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
+      return [...withoutAnalyzing, {
+        id: `${Date.now()}-generating`,
+        type: 'status',
+        content: '⚡ Generating code and files',
+        timestamp: new Date(),
+        status: generatingStatus,
+        actionType: 'generation'
+      }];
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await generateCodeFromInput(input);
+    
+    const runningStatus: StatusDetail = {
+      id: `status-${Date.now()}-running`,
+      type: 'running',
+      title: '🚀 Running code',
+      description: 'Testing the generated code',
+      progress: 75
+    };
+    
+    setMessages(prev => {
+      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating'].includes(msg.status.type));
+      return [...withoutPrevious, {
+        id: `${Date.now()}-running`,
+        type: 'status',
+        content: '🚀 Running and testing code',
+        timestamp: new Date(),
+        status: runningStatus,
+        actionType: 'generation'
+      }];
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const testingStatus: StatusDetail = {
+      id: `status-${Date.now()}-testing`,
+      type: 'running',
+      title: '🧪 Testing',
+      description: 'Checking for errors and validating functionality',
+      progress: 90
+    };
+    
+    setMessages(prev => {
+      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
+      return [...withoutPrevious, {
+        id: `${Date.now()}-testing`,
+        type: 'status',
+        content: '🧪 Testing code functionality',
+        timestamp: new Date(),
+        status: testingStatus,
+        actionType: 'generation'
+      }];
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    const completedStatus: StatusDetail = {
+      id: `status-${Date.now()}-completed`,
+      type: 'completed',
+      title: '✅ Code generated successfully',
+      description: 'All files created and tested. Ready for use!',
+      progress: 100
+    };
+    
+    setMessages(prev => {
+      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
+      return [...withoutPrevious, {
+        id: `${Date.now()}-completed`,
+        type: 'status',
+        content: '✅ Code generated successfully',
+        timestamp: new Date(),
+        status: completedStatus,
+        actionType: 'generation'
+      }];
+    });
+  };
+
+  const handleEditingRequest = async (input: string) => {
+    const editBranchId = createBranch(`edit-${Date.now()}`, `Editing files: ${input}`, true);
+    
+    const editingStatus: StatusDetail = {
+      id: `status-${Date.now()}-editing`,
+      type: 'generating',
+      title: '✏️ Editing files',
+      description: `Modifying existing files in new branch`,
+      progress: 60
+    };
+    
+    setMessages(prev => {
+      const withoutAnalyzing = prev.filter(msg => !msg.status || msg.status.type !== 'analyzing');
+      return [...withoutAnalyzing, {
+        id: `${Date.now()}-editing`,
+        type: 'status',
+        content: '✏️ Editing existing files',
+        timestamp: new Date(),
+        status: editingStatus,
+        actionType: 'editing'
+      }];
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    const testingStatus: StatusDetail = {
+      id: `status-${Date.now()}-testing`,
+      type: 'running',
+      title: '🧪 Testing changes',
+      description: 'Validating modifications work correctly',
+      progress: 85
+    };
+    
+    setMessages(prev => {
+      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating'].includes(msg.status.type));
+      return [...withoutPrevious, {
+        id: `${Date.now()}-testing`,
+        type: 'status',
+        content: '🧪 Testing edited files',
+        timestamp: new Date(),
+        status: testingStatus,
+        actionType: 'editing'
+      }];
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const completedStatus: StatusDetail = {
+      id: `status-${Date.now()}-completed`,
+      type: 'completed',
+      title: '✅ Files updated successfully',
+      description: 'All changes applied and tested in new branch',
+      progress: 100
+    };
+    
+    setMessages(prev => {
+      const withoutPrevious = prev.filter(msg => !msg.status || !['analyzing', 'generating', 'running'].includes(msg.status.type));
+      return [...withoutPrevious, {
+        id: `${Date.now()}-completed`,
+        type: 'status',
+        content: '✅ Files updated successfully',
+        timestamp: new Date(),
+        status: completedStatus,
+        actionType: 'editing'
+      }];
+    });
+  };
+
+  const generateCodeFromInput = async (input: string) => {
+    if (!currentBranch) return;
+
+    if (input.toLowerCase().includes('calculator')) {
+      const calculatorCode = `import React, { useState } from 'react';
+
+const Calculator = () => {
+  const [display, setDisplay] = useState('0');
+  const [operation, setOperation] = useState('');
+  const [previousValue, setPreviousValue] = useState('');
+  
+  const handleNumber = (num: string) => {
+    setDisplay(display === '0' ? num : display + num);
+  };
+  
+  const handleOperation = (op: string) => {
+    setPreviousValue(display);
+    setOperation(op);
+    setDisplay('0');
+  };
+  
+  const calculate = () => {
+    const prev = parseFloat(previousValue);
+    const current = parseFloat(display);
+    
+    let result = 0;
+    switch (operation) {
+      case '+':
+        result = prev + current;
+        break;
+      case '-':
+        result = prev - current;
+        break;
+      case '*':
+        result = prev * current;
+        break;
+      case '/':
+        result = prev / current;
+        break;
+      default:
+        return;
+    }
+    
+    setDisplay(result.toString());
+    setOperation('');
+    setPreviousValue('');
+  };
+
+  return (
+    <div className="calculator bg-gray-800 p-6 rounded-lg max-w-xs mx-auto">
+      <div className="display bg-gray-900 p-4 rounded mb-4 text-right text-white text-2xl">
+        {display}
+      </div>
+      <div className="buttons grid grid-cols-4 gap-2">
+        {[
+          'C', '±', '%', '÷',
+          '7', '8', '9', '×',
+          '4', '5', '6', '-',
+          '1', '2', '3', '+',
+          '0', '.', '=', '='
+        ].map((btn, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              if (['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(btn)) {
+                handleNumber(btn);
+              } else if (['+', '-', '×', '÷'].includes(btn)) {
+                handleOperation(btn === '×' ? '*' : btn === '÷' ? '/' : btn);
+              } else if (btn === '=') {
+                calculate();
+              } else if (btn === 'C') {
+                setDisplay('0');
+                setOperation('');
+                setPreviousValue('');
+              }
+            }}
+            className="bg-gray-600 hover:bg-gray-500 text-white p-3 rounded transition-colors"
+          >
+            {btn}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default Calculator;`;
+
+      const newFile = {
+        name: 'Calculator.tsx',
+        type: 'file' as const,
+        path: 'src/components/Calculator.tsx',
+        content: calculatorCode,
+        isNew: true,
+        lastModified: new Date()
+      };
+
+      const updatedFileTree = [...(currentBranch.fileTree || []), newFile];
+      updateBranchFiles(currentBranch.id, updatedFileTree);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -434,7 +705,7 @@ What would you like me to help you build or fix today?`,
                     </div>
                   )}
                   <div className="mt-2 text-xs text-gray-500">
-                    {message.timestamp.toLocaleTimeString()}
+                    {new Date(message.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
