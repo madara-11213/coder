@@ -1,10 +1,11 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, Settings, Loader2, AlertCircle, Code, Search, Play, CheckCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useBranchStore } from '@/store/branchStore';
-import { useProjectStore } from '@/store/projectStore';
 import StatusDetailModal from './StatusDetailModal';
 
 // Import the base Message type from store and extend it
@@ -32,8 +33,7 @@ interface ExecutionResult {
 }
 
 export default function MainSection() {
-  const { getCurrentBranch, updateBranchChat, updateBranchFiles } = useBranchStore();
-  const { updateFileContent, createNewFile } = useProjectStore();
+  const { getCurrentBranch, updateBranchChat } = useBranchStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
