@@ -266,7 +266,7 @@ export default function StatusDetailModal({ isOpen, onClose, status }: StatusDet
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-90 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
+        className="fixed inset-0 bg-black flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
         onClick={onClose}
       >
         <motion.div
